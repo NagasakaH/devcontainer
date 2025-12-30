@@ -1,0 +1,7 @@
+{
+  "name": "dotnet development",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:8.0-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  }
+}
