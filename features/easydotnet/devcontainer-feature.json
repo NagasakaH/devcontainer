@@ -1,0 +1,16 @@
+{
+    "id": "easydotnet",
+    "version": "1.0.0",
+    "name": "Easy Dotnet",
+    "description": "Installs the easy-dotnet CLI tool for .NET development",
+    "options": {
+        "version": {
+            "type": "string",
+            "default": "latest",
+            "description": "Version of easydotnet to install"
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/dotnet"
+    ]
+}

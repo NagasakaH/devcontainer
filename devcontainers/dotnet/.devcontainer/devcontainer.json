@@ -1,6 +1,9 @@
 {
   "name": "dotnet development",
-  "image": "mcr.microsoft.com/devcontainers/dotnet:8.0-bookworm",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "runArgs": ["--platform=linux/amd64"],
   "features": {
     "ghcr.io/devcontainers/features/git:1": {}
   }

@@ -1,27 +1,176 @@
 #!/bin/bash
+# Absolute path to this script
+SCRIPT=$(readlink -f "$0")
+# Absolute path this script is in
+SCRIPT_DIR=$(dirname "$SCRIPT")
+# Project root directory (parent of bin/)
+PROJECT_ROOT=$(dirname "$SCRIPT_DIR")
 
+# Usage: vimcontainer [options] <devcontainer_path> <workspace_path>
+# Options:
+#   -r, --rebuild: Rebuild the container
+#
+# Arguments:
+#   devcontainer_path: Path to the .devcontainer folder (or parent containing .devcontainer)
+#   workspace_path: Path to use as workspace in the container
+
+# Parse arguments
 rebuild_flag=""
-if [[ "$1" == "-r" || "$1" == "--rebuild" ]]; then
-	rebuild_flag="--remove-existing-container"
+while [[ "$1" =~ ^- ]]; do
+    case "$1" in
+        -r|--rebuild)
+            rebuild_flag="--remove-existing-container"
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+DEVCONTAINER_SRC="$1"
+WORKSPACE_PATH="${2:-.}"
+
+# Validate arguments
+if [ -z "$DEVCONTAINER_SRC" ]; then
+    echo "Usage: vimcontainer [options] <devcontainer_path> [workspace_path]"
+    echo ""
+    echo "Options:"
+    echo "  -r, --rebuild         Rebuild the container"
+    echo ""
+    echo "Arguments:"
+    echo "  devcontainer_path     Path to .devcontainer folder (or parent containing it)"
+    echo "  workspace_path        Path to use as workspace (default: current directory)"
+    exit 1
 fi
 
-# Get the Neovim config path using headless nvim
-config_path=$(nvim --headless -c 'lua io.stdout:write(vim.fn.stdpath("config"))' -c 'q' --clean)
+# Resolve paths
+DEVCONTAINER_SRC=$(readlink -f "$DEVCONTAINER_SRC")
+WORKSPACE_PATH=$(readlink -f "$WORKSPACE_PATH")
 
-# Resolve symlink for the config path
-resolved_config_path=$(readlink -f "$config_path")
+# Check if DEVCONTAINER_SRC is .devcontainer folder or contains it
+if [ -f "$DEVCONTAINER_SRC/devcontainer.json" ]; then
+    DEVCONTAINER_FOLDER="$DEVCONTAINER_SRC"
+elif [ -d "$DEVCONTAINER_SRC/.devcontainer" ]; then
+    DEVCONTAINER_FOLDER="$DEVCONTAINER_SRC/.devcontainer"
+else
+    echo "Error: Could not find devcontainer.json in $DEVCONTAINER_SRC or $DEVCONTAINER_SRC/.devcontainer"
+    exit 1
+fi
+
+# Create temporary workspace with consistent name based on workspace path
+# This ensures the same workspace always gets the same temp directory and container
+WORKSPACE_HASH=$(echo -n "$WORKSPACE_PATH" | md5sum | cut -d' ' -f1 | cut -c1-8)
+TEMP_WORKSPACE="/tmp/vimcontainer-${WORKSPACE_HASH}"
+
+# Clean up old temp workspace if it exists and we're rebuilding
+if [ -n "$rebuild_flag" ] && [ -d "$TEMP_WORKSPACE" ]; then
+    rm -rf "$TEMP_WORKSPACE"
+    echo "Cleaned up old temporary workspace for rebuild"
+fi
+
+mkdir -p "$TEMP_WORKSPACE"
+TEMP_DEVCONTAINER="$TEMP_WORKSPACE/.devcontainer"
+
+echo "Using temporary workspace at: $TEMP_WORKSPACE"
+echo "Source .devcontainer: $DEVCONTAINER_FOLDER"
+echo "Workspace path: $WORKSPACE_PATH"
+
+# Only copy .devcontainer and features if they don't exist or if rebuilding
+if [ ! -d "$TEMP_DEVCONTAINER" ] || [ -n "$rebuild_flag" ]; then
+    echo "Setting up .devcontainer configuration..."
+
+    # Remove old .devcontainer if it exists
+    if [ -d "$TEMP_DEVCONTAINER" ]; then
+        rm -rf "$TEMP_DEVCONTAINER"
+    fi
+
+    # Copy .devcontainer to temp location
+    cp -r "$DEVCONTAINER_FOLDER" "$TEMP_DEVCONTAINER"
+
+    # Copy features to temp .devcontainer
+    for feature in tree-sitter easydotnet luarocks; do
+        if [ -d "$PROJECT_ROOT/features/$feature" ]; then
+            cp -r "$PROJECT_ROOT/features/$feature" "$TEMP_DEVCONTAINER/$feature"
+            echo "Copied feature: $feature"
+        fi
+    done
+
+    # Merge local features and postCreateCommand into devcontainer.json
+    ORIGINAL_JSON="$TEMP_DEVCONTAINER/devcontainer.json"
+    if [ -f "$ORIGINAL_JSON" ]; then
+        # Add features
+        jq '.features += {"./tree-sitter": {}, "./easydotnet": {}, "./luarocks": {}}' "$ORIGINAL_JSON" > "$ORIGINAL_JSON.tmp"
+        mv "$ORIGINAL_JSON.tmp" "$ORIGINAL_JSON"
+
+        # Add postCreateCommand if not already present
+        if ! jq -e '.postCreateCommand' "$ORIGINAL_JSON" > /dev/null 2>&1; then
+            POST_CREATE_CMD="bash -c 'for dir in /workspaces/*/; do if [ -f \"\$dir\"*.sln ] || [ -f \"\$dir\"*.csproj ]; then cd \"\$dir\" && dotnet restore && break; fi; done'"
+            jq --arg cmd "$POST_CREATE_CMD" '.postCreateCommand = $cmd' "$ORIGINAL_JSON" > "$ORIGINAL_JSON.tmp"
+            mv "$ORIGINAL_JSON.tmp" "$ORIGINAL_JSON"
+            echo "Added postCreateCommand for dotnet restore"
+        fi
+
+        echo "Merged local features into devcontainer.json"
+    fi
+else
+    echo "Using existing .devcontainer configuration (use -r to rebuild)"
+fi
+
+# Get the Neovim config path (shared across all containers)
+# Use LazyVim submodule from the project instead of user's config
+LAZYVIM_PATH="$PROJECT_ROOT/submodules/LazyVim"
+
+# Initialize submodule if not already done
+if [ ! -d "$LAZYVIM_PATH/.git" ] && [ ! -f "$LAZYVIM_PATH/.git" ]; then
+    echo "Initializing LazyVim submodule..."
+    cd "$PROJECT_ROOT"
+    git submodule update --init --recursive submodules/LazyVim
+    cd - > /dev/null
+fi
+
+if [ ! -d "$LAZYVIM_PATH" ]; then
+    echo "Error: LazyVim submodule not found at $LAZYVIM_PATH"
+    echo "Please check your git submodule configuration"
+    exit 1
+fi
+
+resolved_config_path=$(readlink -f "$LAZYVIM_PATH")
+echo "Using LazyVim config from: $resolved_config_path"
+
+# Cleanup function - only clean up on interrupt/error, not on normal exit
+cleanup() {
+    # Only cleanup on interrupt (INT/TERM), not on normal exit
+    # This preserves the temp workspace for container reuse
+    if [ "$1" = "force" ]; then
+        if [ -d "$TEMP_WORKSPACE" ]; then
+            rm -rf "$TEMP_WORKSPACE"
+            echo "Cleaned up temporary workspace"
+        fi
+    fi
+}
+trap 'cleanup force' INT TERM
 
 # Construct the command to run the devcontainer
-# TODO: resolve config dir
 command="devcontainer up $rebuild_flag \
-    --mount type=bind,source=$resolved_config_path,target=/home/code/.config/container-nvim \
+    --workspace-folder $TEMP_WORKSPACE \
+    --mount type=bind,source=$WORKSPACE_PATH,target=/workspaces/$(basename $WORKSPACE_PATH) \
+    --mount type=bind,source=$resolved_config_path,target=/home/vscode/.config/nvim \
+    --mount type=bind,source=$PROJECT_ROOT/dotfiles/.tmux.conf,target=/home/vscode/.tmux.conf \
     --additional-features='{ \
         \"ghcr.io/duduribeiro/devcontainer-features/neovim:1\": { \"version\": \"stable\" }, \
         \"ghcr.io/jungaretti/features/ripgrep:1\": {}, \
         \"ghcr.io/devcontainers-community/features/deno\": {}, \
-        \"ghcr.io/devcontainers/features/node:1\": {}\
-    }' \
-    --workspace-folder ."
+        \"ghcr.io/devcontainers/features/node:1\": {}, \
+        \"ghcr.io/devcontainers-extra/features/tmux-apt-get:1\": {} \
+    }'"
 
 eval "$command"
-eval "devcontainer exec --remote-env NVIM_APPNAME=container-nvim --workspace-folder . nvim"
+EXIT_CODE=$?
+
+# Don't execute nvim if devcontainer up failed
+if [ $EXIT_CODE -eq 0 ]; then
+    # eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE nvim /workspaces/$(basename $WORKSPACE_PATH)"
+    eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE bash"
+fi

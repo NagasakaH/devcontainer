@@ -1,0 +1,13 @@
+{
+  "id": "luarocks",
+  "version": "1.0.0",
+  "name": "LuaRocks",
+  "description": "Installs LuaRocks package manager for Lua",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "latest",
+      "description": "LuaRocks version to install"
+    }
+  }
+}
