@@ -43,18 +43,25 @@ cd devcontainer
 
 ```bash
 # .NET開発環境を起動
-vimcontainer ~/git/devcontainer/devcontainers/dotnet ~/path/to/your/project
+vimcontainer dotnet ~/path/to/your/project
 
 # 初回またはリビルド時
-vimcontainer -r ~/git/devcontainer/devcontainers/dotnet ~/path/to/your/project
+vimcontainer -r dotnet ~/path/to/your/project
+
+# 利用可能なイメージを確認
+vimcontainer
 ```
 
 **引数**:
-- 第1引数: `.devcontainer`フォルダのパス（または親ディレクトリ）
-- 第2引数: プロジェクトのワークスペースパス
+- 第1引数: イメージ名（例: `dotnet`, `react`）
+- 第2引数: プロジェクトのワークスペースパス（省略時: カレントディレクトリ）
 
 **オプション**:
 - `-r, --rebuild`: コンテナを再ビルド
+
+**利用可能なイメージ**:
+- `dotnet`: .NET開発環境
+- `react`: React開発環境（準備中）
 
 ## カスタムDevContainer Features
 
@@ -62,7 +69,7 @@ vimcontainer -r ~/git/devcontainer/devcontainers/dotnet ~/path/to/your/project
 
 tree-sitter CLIをプリビルドバイナリからインストールします。
 
-- **バージョン**: 0.24.5 (デフォルト)
+- **バージョン**: 0.25.10 (デフォルト)
 - **対応アーキテクチャ**: amd64, arm64
 - **インストール先**: `/usr/local/bin/tree-sitter`
 
@@ -83,6 +90,49 @@ tree-sitter CLIをプリビルドバイナリからインストールします�
 **自動設定**:
 - vscodeユーザーにツールをインストール
 - PATHを自動設定 (`/etc/profile.d/dotnet-tools.sh`)
+
+### luarocks
+
+Luaパッケージマネージャーをインストールします。
+
+- **用途**: Neovimプラグインで必要なLuaライブラリの管理
+- **インストール先**: システムパッケージ経由
+
+## Features設定システム
+
+vimcontainerは`features.json`ファイルを使用してDevContainer featuresを管理します。
+
+### 設定ファイルの階層
+
+1. **Common Features** (`devcontainers/common/features.json`)
+   - すべてのイメージで共通して使用するfeatures
+   - ベースとなる開発環境ツール（neovim, ripgrep, tmux等）
+
+2. **Image-specific Features** (`devcontainers/{image}/features.json`)
+   - イメージ固有のfeatures
+   - Common Featuresを上書き可能
+
+### features.jsonの構造
+
+```json
+{
+  "localFeatures": [
+    {
+      "name": "tree-sitter",
+      "options": {}
+    }
+  ],
+  "publicFeatures": {
+    "ghcr.io/duduribeiro/devcontainer-features/neovim:1": {},
+    "ghcr.io/jungaretti/features/ripgrep:1": {}
+  },
+  "postCreateCommand": "dotnet restore"
+}
+```
+
+- **localFeatures**: `features/`ディレクトリ内のカスタムfeatures
+- **publicFeatures**: GitHub Container Registryなどの公開features
+- **postCreateCommand**: コンテナ作成後に実行するコマンド
 
 ## vimcontainerの仕組み
 
@@ -109,20 +159,26 @@ TEMP_WORKSPACE="/tmp/vimcontainer-${WORKSPACE_HASH}"
 
 **注**: nvimのdata/stateディレクトリ（`.local/share/nvim`, `.local/state/nvim`）はコンテナ内に保持され、コンテナごとに独立します。
 
-### 自動追加されるfeatures
+### Features設定の読み込みプロセス
 
-vimcontainerは以下のfeaturesを自動的に追加します:
+vimcontainerは起動時に以下の手順でfeaturesを読み込み、マージします:
 
-- **プロジェクトカスタムfeatures**:
-  - `./tree-sitter`
-  - `./easydotnet`
+1. **Common Featuresの読み込み** (`devcontainers/common/features.json`)
+   - すべてのイメージで共通のlocalFeaturesとpublicFeaturesを読み込み
 
-- **公式features**:
-  - `ghcr.io/duduribeiro/devcontainer-features/neovim:1`
-  - `ghcr.io/jungaretti/features/ripgrep:1`
-  - `ghcr.io/devcontainers-community/features/deno`
-  - `ghcr.io/devcontainers/features/node:1`
-  - `ghcr.io/devcontainers-extra/features/tmux-apt-get:1`
+2. **Image-specific Featuresの読み込み** (`devcontainers/{image}/features.json`)
+   - イメージ固有のfeaturesを読み込み
+
+3. **マージ処理**
+   - localFeatures: 配列を連結（common + image-specific）
+   - publicFeatures: オブジェクトをマージ（image-specificがcommonを上書き）
+   - postCreateCommand: image-specificのものを使用
+
+4. **devcontainer.jsonへの統合**
+   - マージされたfeaturesを一時ワークスペースの`devcontainer.json`に注入
+   - postCreateCommandが未設定の場合は追加
+
+この仕組みにより、共通設定を保ちながらイメージごとのカスタマイズが可能になります。
 
 ## .NET開発環境
 
@@ -158,12 +214,14 @@ nvim内で以下のコマンドを使用:
 
 .NET開発環境では、コンテナ作成時に自動的に`dotnet restore`が実行されます。
 
-設定: `devcontainers/dotnet/.devcontainer/devcontainer.json`
+設定: `devcontainers/dotnet/features.json`
 ```json
 {
   "postCreateCommand": "dotnet restore"
 }
 ```
+
+この設定はvimcontainerによって自動的に`.devcontainer/devcontainer.json`にマージされます。
 
 ## Neovim設定
 

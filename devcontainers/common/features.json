@@ -1,0 +1,21 @@
+{
+  "localFeatures": [
+    {
+      "name": "tree-sitter",
+      "options": {}
+    },
+    {
+      "name": "luarocks",
+      "options": {}
+    }
+  ],
+  "publicFeatures": {
+    "ghcr.io/duduribeiro/devcontainer-features/neovim:1": {
+      "version": "stable"
+    },
+    "ghcr.io/jungaretti/features/ripgrep:1": {},
+    "ghcr.io/devcontainers-community/features/deno": {},
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers-extra/features/tmux-apt-get:1": {}
+  }
+}

@@ -5,13 +5,17 @@ SCRIPT=$(readlink -f "$0")
 SCRIPT_DIR=$(dirname "$SCRIPT")
 # Project root directory (parent of bin/)
 PROJECT_ROOT=$(dirname "$SCRIPT_DIR")
+# Devcontainers templates directory
+DEVCONTAINERS_DIR="$PROJECT_ROOT/devcontainers"
+# Common features path
+COMMON_FEATURES_FILE="$DEVCONTAINERS_DIR/common/features.json"
 
-# Usage: vimcontainer [options] <devcontainer_path> <workspace_path>
+# Usage: vimcontainer [options] <image_name> <workspace_path>
 # Options:
 #   -r, --rebuild: Rebuild the container
 #
 # Arguments:
-#   devcontainer_path: Path to the .devcontainer folder (or parent containing .devcontainer)
+#   image_name: Name of the devcontainer template (e.g., 'dotnet', 'react')
 #   workspace_path: Path to use as workspace in the container
 
 # Parse arguments
@@ -29,33 +33,57 @@ while [[ "$1" =~ ^- ]]; do
     esac
 done
 
-DEVCONTAINER_SRC="$1"
+IMAGE_NAME="$1"
 WORKSPACE_PATH="${2:-.}"
 
 # Validate arguments
-if [ -z "$DEVCONTAINER_SRC" ]; then
-    echo "Usage: vimcontainer [options] <devcontainer_path> [workspace_path]"
+if [ -z "$IMAGE_NAME" ]; then
+    echo "Usage: vimcontainer [options] <image_name> [workspace_path]"
     echo ""
     echo "Options:"
     echo "  -r, --rebuild         Rebuild the container"
     echo ""
     echo "Arguments:"
-    echo "  devcontainer_path     Path to .devcontainer folder (or parent containing it)"
+    echo "  image_name            Name of devcontainer template (e.g., 'dotnet', 'react')"
     echo "  workspace_path        Path to use as workspace (default: current directory)"
+    echo ""
+    echo "Available images:"
+    for img_dir in "$DEVCONTAINERS_DIR"/*; do
+        if [ -d "$img_dir" ] && [ "$(basename "$img_dir")" != "common" ]; then
+            echo "  - $(basename "$img_dir")"
+        fi
+    done
     exit 1
 fi
 
-# Resolve paths
-DEVCONTAINER_SRC=$(readlink -f "$DEVCONTAINER_SRC")
+# Resolve workspace path
 WORKSPACE_PATH=$(readlink -f "$WORKSPACE_PATH")
 
-# Check if DEVCONTAINER_SRC is .devcontainer folder or contains it
-if [ -f "$DEVCONTAINER_SRC/devcontainer.json" ]; then
-    DEVCONTAINER_FOLDER="$DEVCONTAINER_SRC"
-elif [ -d "$DEVCONTAINER_SRC/.devcontainer" ]; then
-    DEVCONTAINER_FOLDER="$DEVCONTAINER_SRC/.devcontainer"
-else
-    echo "Error: Could not find devcontainer.json in $DEVCONTAINER_SRC or $DEVCONTAINER_SRC/.devcontainer"
+# Resolve devcontainer template path
+DEVCONTAINER_TEMPLATE="$DEVCONTAINERS_DIR/$IMAGE_NAME"
+if [ ! -d "$DEVCONTAINER_TEMPLATE" ]; then
+    echo "Error: Image '$IMAGE_NAME' not found at $DEVCONTAINER_TEMPLATE"
+    echo ""
+    echo "Available images:"
+    for img_dir in "$DEVCONTAINERS_DIR"/*; do
+        if [ -d "$img_dir" ] && [ "$(basename "$img_dir")" != "common" ]; then
+            echo "  - $(basename "$img_dir")"
+        fi
+    done
+    exit 1
+fi
+
+# Check for .devcontainer folder
+DEVCONTAINER_FOLDER="$DEVCONTAINER_TEMPLATE/.devcontainer"
+if [ ! -d "$DEVCONTAINER_FOLDER" ]; then
+    echo "Error: No .devcontainer folder found in $DEVCONTAINER_TEMPLATE"
+    exit 1
+fi
+
+# Check for features.json
+IMAGE_FEATURES_FILE="$DEVCONTAINER_TEMPLATE/features.json"
+if [ ! -f "$IMAGE_FEATURES_FILE" ]; then
+    echo "Error: No features.json found at $IMAGE_FEATURES_FILE"
     exit 1
 fi
 
@@ -77,6 +105,62 @@ echo "Using temporary workspace at: $TEMP_WORKSPACE"
 echo "Source .devcontainer: $DEVCONTAINER_FOLDER"
 echo "Workspace path: $WORKSPACE_PATH"
 
+# Function to load and merge feature configurations
+load_features_config() {
+    # Load common features
+    local common_local_features=()
+    local common_public_features="{}"
+
+    if [ -f "$COMMON_FEATURES_FILE" ]; then
+        echo "Loading common features from $COMMON_FEATURES_FILE"
+
+        # Extract local features array
+        common_local_features=($(jq -r '.localFeatures[]?.name // empty' "$COMMON_FEATURES_FILE"))
+
+        # Extract public features object
+        common_public_features=$(jq -r '.publicFeatures // {}' "$COMMON_FEATURES_FILE")
+    else
+        echo "Warning: No common features file found at $COMMON_FEATURES_FILE"
+    fi
+
+    # Load image-specific features
+    local image_local_features=()
+    local image_public_features="{}"
+    local post_create_cmd=""
+
+    if [ -f "$IMAGE_FEATURES_FILE" ]; then
+        echo "Loading image-specific features from $IMAGE_FEATURES_FILE"
+
+        # Extract local features array
+        image_local_features=($(jq -r '.localFeatures[]?.name // empty' "$IMAGE_FEATURES_FILE"))
+
+        # Extract public features object
+        image_public_features=$(jq -r '.publicFeatures // {}' "$IMAGE_FEATURES_FILE")
+
+        # Extract postCreateCommand
+        post_create_cmd=$(jq -r '.postCreateCommand // empty' "$IMAGE_FEATURES_FILE")
+    fi
+
+    # Merge local features (concatenate arrays)
+    ALL_LOCAL_FEATURES=("${common_local_features[@]}" "${image_local_features[@]}")
+
+    # Merge public features (image-specific overrides common)
+    ALL_PUBLIC_FEATURES=$(jq -n --argjson common "$common_public_features" \
+                                 --argjson specific "$image_public_features" \
+                                 '$common + $specific')
+
+    # Store postCreateCommand
+    POST_CREATE_COMMAND="$post_create_cmd"
+
+    echo "Merged features:"
+    echo "  Local features: ${ALL_LOCAL_FEATURES[*]}"
+    echo "  Public features count: $(echo "$ALL_PUBLIC_FEATURES" | jq 'length')"
+    [ -n "$POST_CREATE_COMMAND" ] && echo "  Post-create command: $POST_CREATE_COMMAND"
+}
+
+# Call the function
+load_features_config
+
 # Only copy .devcontainer and features if they don't exist or if rebuilding
 if [ ! -d "$TEMP_DEVCONTAINER" ] || [ -n "$rebuild_flag" ]; then
     echo "Setting up .devcontainer configuration..."
@@ -89,30 +173,69 @@ if [ ! -d "$TEMP_DEVCONTAINER" ] || [ -n "$rebuild_flag" ]; then
     # Copy .devcontainer to temp location
     cp -r "$DEVCONTAINER_FOLDER" "$TEMP_DEVCONTAINER"
 
-    # Copy features to temp .devcontainer
-    for feature in tree-sitter easydotnet luarocks; do
-        if [ -d "$PROJECT_ROOT/features/$feature" ]; then
-            cp -r "$PROJECT_ROOT/features/$feature" "$TEMP_DEVCONTAINER/$feature"
-            echo "Copied feature: $feature"
+    # Copy local features to temp .devcontainer
+    for feature_name in "${ALL_LOCAL_FEATURES[@]}"; do
+        if [ -d "$PROJECT_ROOT/features/$feature_name" ]; then
+            cp -r "$PROJECT_ROOT/features/$feature_name" "$TEMP_DEVCONTAINER/$feature_name"
+            echo "Copied local feature: $feature_name"
+        else
+            echo "Warning: Feature '$feature_name' not found in $PROJECT_ROOT/features/"
         fi
     done
 
-    # Merge local features and postCreateCommand into devcontainer.json
-    ORIGINAL_JSON="$TEMP_DEVCONTAINER/devcontainer.json"
-    if [ -f "$ORIGINAL_JSON" ]; then
-        # Add features
-        jq '.features += {"./tree-sitter": {}, "./easydotnet": {}, "./luarocks": {}}' "$ORIGINAL_JSON" > "$ORIGINAL_JSON.tmp"
-        mv "$ORIGINAL_JSON.tmp" "$ORIGINAL_JSON"
+    # Build local features JSON for merging
+    LOCAL_FEATURES_JSON="{}"
+    for feature_name in "${ALL_LOCAL_FEATURES[@]}"; do
+        # Get feature options from config files
+        feature_options="{}"
 
-        # Add postCreateCommand if not already present
-        if ! jq -e '.postCreateCommand' "$ORIGINAL_JSON" > /dev/null 2>&1; then
-            POST_CREATE_CMD="bash -c 'for dir in /workspaces/*/; do if [ -f \"\$dir\"*.sln ] || [ -f \"\$dir\"*.csproj ]; then cd \"\$dir\" && dotnet restore && break; fi; done'"
-            jq --arg cmd "$POST_CREATE_CMD" '.postCreateCommand = $cmd' "$ORIGINAL_JSON" > "$ORIGINAL_JSON.tmp"
-            mv "$ORIGINAL_JSON.tmp" "$ORIGINAL_JSON"
-            echo "Added postCreateCommand for dotnet restore"
+        # Check common features config
+        if [ -f "$COMMON_FEATURES_FILE" ]; then
+            options=$(jq -r --arg name "$feature_name" \
+                '.localFeatures[] | select(.name == $name) | .options // {}' \
+                "$COMMON_FEATURES_FILE")
+            [ "$options" != "" ] && feature_options="$options"
         fi
 
-        echo "Merged local features into devcontainer.json"
+        # Check image-specific config (overrides common)
+        if [ -f "$IMAGE_FEATURES_FILE" ]; then
+            options=$(jq -r --arg name "$feature_name" \
+                '.localFeatures[] | select(.name == $name) | .options // {}' \
+                "$IMAGE_FEATURES_FILE")
+            [ "$options" != "" ] && feature_options="$options"
+        fi
+
+        # Add to features JSON
+        LOCAL_FEATURES_JSON=$(echo "$LOCAL_FEATURES_JSON" | \
+            jq --arg path "./$feature_name" \
+               --argjson opts "$feature_options" \
+               '. + {($path): $opts}')
+    done
+
+    # Merge everything into devcontainer.json
+    ORIGINAL_JSON="$TEMP_DEVCONTAINER/devcontainer.json"
+    if [ -f "$ORIGINAL_JSON" ]; then
+        # Add local features
+        if [ "${#ALL_LOCAL_FEATURES[@]}" -gt 0 ]; then
+            jq --argjson features "$LOCAL_FEATURES_JSON" \
+               '.features += $features' \
+               "$ORIGINAL_JSON" > "$ORIGINAL_JSON.tmp"
+            mv "$ORIGINAL_JSON.tmp" "$ORIGINAL_JSON"
+            echo "Merged ${#ALL_LOCAL_FEATURES[@]} local features into devcontainer.json"
+        fi
+
+        # Add postCreateCommand if specified and not already present
+        if [ -n "$POST_CREATE_COMMAND" ]; then
+            if ! jq -e '.postCreateCommand' "$ORIGINAL_JSON" > /dev/null 2>&1; then
+                jq --arg cmd "$POST_CREATE_COMMAND" \
+                   '.postCreateCommand = $cmd' \
+                   "$ORIGINAL_JSON" > "$ORIGINAL_JSON.tmp"
+                mv "$ORIGINAL_JSON.tmp" "$ORIGINAL_JSON"
+                echo "Added postCreateCommand"
+            fi
+        fi
+
+        echo "Merged features configuration into devcontainer.json"
     fi
 else
     echo "Using existing .devcontainer configuration (use -r to rebuild)"
@@ -158,13 +281,7 @@ command="devcontainer up $rebuild_flag \
     --mount type=bind,source=$WORKSPACE_PATH,target=/workspaces/$(basename $WORKSPACE_PATH) \
     --mount type=bind,source=$resolved_config_path,target=/home/vscode/.config/nvim \
     --mount type=bind,source=$PROJECT_ROOT/dotfiles/.tmux.conf,target=/home/vscode/.tmux.conf \
-    --additional-features='{ \
-        \"ghcr.io/duduribeiro/devcontainer-features/neovim:1\": { \"version\": \"stable\" }, \
-        \"ghcr.io/jungaretti/features/ripgrep:1\": {}, \
-        \"ghcr.io/devcontainers-community/features/deno\": {}, \
-        \"ghcr.io/devcontainers/features/node:1\": {}, \
-        \"ghcr.io/devcontainers-extra/features/tmux-apt-get:1\": {} \
-    }'"
+    --additional-features='$ALL_PUBLIC_FEATURES'"
 
 eval "$command"
 EXIT_CODE=$?

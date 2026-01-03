@@ -1,0 +1,5 @@
+{
+  "localFeatures": [],
+  "publicFeatures": {},
+  "postCreateCommand": "npm install"
+}

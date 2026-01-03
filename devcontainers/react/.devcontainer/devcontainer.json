@@ -1,0 +1,8 @@
+{
+  "name": "react development",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "runArgs": ["--platform=linux/amd64"],
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  }
+}

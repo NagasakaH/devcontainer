@@ -1,0 +1,10 @@
+{
+  "localFeatures": [
+    {
+      "name": "easydotnet",
+      "options": {}
+    }
+  ],
+  "publicFeatures": {},
+  "postCreateCommand": "bash -c 'for dir in /workspaces/*/; do if [ -f \"$dir\"*.sln ] || [ -f \"$dir\"*.csproj ]; then cd \"$dir\" && dotnet restore && break; fi; done'"
+}
