@@ -262,6 +262,18 @@ fi
 resolved_config_path=$(readlink -f "$LAZYVIM_PATH")
 echo "Using LazyVim config from: $resolved_config_path"
 
+# Get Claude Code auth paths from host
+CLAUDE_AUTH_DIR="$HOME/.claude"
+CLAUDE_AUTH_JSON="$HOME/.claude.json"
+
+if [ ! -d "$CLAUDE_AUTH_DIR" ]; then
+    echo "Warning: Claude Code auth directory not found at $CLAUDE_AUTH_DIR"
+fi
+
+if [ ! -f "$CLAUDE_AUTH_JSON" ]; then
+    echo "Warning: Claude Code config file not found at $CLAUDE_AUTH_JSON"
+fi
+
 # Cleanup function - only clean up on interrupt/error, not on normal exit
 cleanup() {
     # Only cleanup on interrupt (INT/TERM), not on normal exit
@@ -276,18 +288,31 @@ cleanup() {
 trap 'cleanup force' INT TERM
 
 # Construct the command to run the devcontainer
-command="devcontainer up $rebuild_flag \
-    --workspace-folder $TEMP_WORKSPACE \
-    --mount type=bind,source=$WORKSPACE_PATH,target=/workspaces/$(basename $WORKSPACE_PATH) \
-    --mount type=bind,source=$resolved_config_path,target=/home/vscode/.config/nvim \
-    --mount type=bind,source=$PROJECT_ROOT/dotfiles/.tmux.conf,target=/home/vscode/.tmux.conf \
-    --additional-features='$ALL_PUBLIC_FEATURES'"
+MOUNT_ARGS=""
+MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$WORKSPACE_PATH,target=/workspaces/$(basename $WORKSPACE_PATH)"
+MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$resolved_config_path,target=/home/vscode/.config/nvim"
+MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/dotfiles/.tmux.conf,target=/home/vscode/.tmux.conf"
+MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/scripts/start-tmux.sh,target=/usr/local/bin/start-tmux"
+
+# Add Claude Code auth mounts if they exist
+if [ -d "$CLAUDE_AUTH_DIR" ]; then
+    echo "Mounting Claude Code auth directory: $CLAUDE_AUTH_DIR"
+    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$CLAUDE_AUTH_DIR,target=/home/vscode/.claude"
+fi
+
+if [ -f "$CLAUDE_AUTH_JSON" ]; then
+    echo "Mounting Claude Code config file: $CLAUDE_AUTH_JSON"
+    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$CLAUDE_AUTH_JSON,target=/home/vscode/.claude.json"
+fi
+
+command="devcontainer up $rebuild_flag --workspace-folder $TEMP_WORKSPACE $MOUNT_ARGS --additional-features='$ALL_PUBLIC_FEATURES'"
 
 eval "$command"
 EXIT_CODE=$?
 
-# Don't execute nvim if devcontainer up failed
+# Don't execute if devcontainer up failed
 if [ $EXIT_CODE -eq 0 ]; then
-    # eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE nvim /workspaces/$(basename $WORKSPACE_PATH)"
-    eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE bash"
+    # Start tmux session with 3 windows (nvim, claude, bash)
+    eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE start-tmux"
+    # eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE bash"
 fi

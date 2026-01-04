@@ -1,0 +1,16 @@
+{
+  "id": "claude-code",
+  "version": "1.0.0",
+  "name": "Claude Code CLI",
+  "description": "Installs Claude Code CLI for AI-powered development",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "latest",
+      "description": "Version of Claude Code CLI to install"
+    }
+  },
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/node"
+  ]
+}
