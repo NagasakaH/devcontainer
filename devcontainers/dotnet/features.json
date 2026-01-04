@@ -2,7 +2,9 @@
   "localFeatures": [
     {
       "name": "easydotnet",
-      "options": {}
+      "options": {
+        "version": "2.2.29"
+      }
     }
   ],
   "publicFeatures": {},
