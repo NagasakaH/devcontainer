@@ -1,6 +1,6 @@
 {
   "id": "vimcontainer-setup",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "Neovim Data Directory Setup",
   "description": "Creates and configures /home/vscode/.local/share/nvim directory for Neovim data persistence",
   "options": {
@@ -9,5 +9,6 @@
       "default": "vscode",
       "description": "Username for directory ownership"
     }
-  }
+  },
+  "postStartCommand": "chown -R vscode:vscode /home/vscode/.local/share/nvim"
 }
