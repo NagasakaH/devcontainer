@@ -383,6 +383,10 @@ mkdir -p "$AGENTS_DOCS_DIR"
 echo "Mounting agents-docs directory: $AGENTS_DOCS_DIR"
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$AGENTS_DOCS_DIR,target=/docs"
 
+# Add named volume for nvim data persistence
+# Uses workspace-specific volume to keep nvim state independent per workspace
+MOUNT_ARGS="$MOUNT_ARGS --mount type=volume,source=nvim-data-${WORKSPACE_HASH},target=/home/vscode/.local/share/nvim"
+
 # Add Claude Code auth mounts if they exist
 if [ -d "$CLAUDE_AUTH_DIR" ]; then
     echo "Mounting Claude Code auth directory: $CLAUDE_AUTH_DIR"
@@ -402,6 +406,6 @@ EXIT_CODE=$?
 # Don't execute if devcontainer up failed
 if [ $EXIT_CODE -eq 0 ]; then
     # Start tmux session with 3 windows (nvim, claude, bash)
-    eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE --remote-env PROJECT_NAME=$WORKSPACE_NAME start-tmux"
+    eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE --remote-env DOCS_ROOT=/docs --remote-env PROJECT_NAME=$WORKSPACE_NAME start-tmux"
     # eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE bash"
 fi
