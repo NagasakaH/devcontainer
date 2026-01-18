@@ -345,6 +345,16 @@ MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$resolved_config_path,target=/h
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/dotfiles/.tmux.conf,target=/home/vscode/.tmux.conf"
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/scripts/start-tmux.sh,target=/usr/local/bin/start-tmux"
 
+# Add Copilot agents mount
+echo "Mounting Copilot agents directory: $PROJECT_ROOT/agents"
+MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/agents,target=/home/vscode/.copilot/agents"
+
+# Add agents-docs mount for document output
+AGENTS_DOCS_DIR="$PROJECT_ROOT/agents-docs/$WORKSPACE_HASH"
+mkdir -p "$AGENTS_DOCS_DIR"
+echo "Mounting agents-docs directory: $AGENTS_DOCS_DIR"
+MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$AGENTS_DOCS_DIR,target=/docs"
+
 # Add Claude Code auth mounts if they exist
 if [ -d "$CLAUDE_AUTH_DIR" ]; then
     echo "Mounting Claude Code auth directory: $CLAUDE_AUTH_DIR"

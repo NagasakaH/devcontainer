@@ -1,0 +1,8 @@
+# agents-docs - エージェントが出力するドキュメント
+agents-docs/*
+!agents-docs/.gitkeep
+
+# agents-docs-preview
+agents-docs-preview/node_modules/
+agents-docs-preview/build/
+agents-docs-preview/.docusaurus/

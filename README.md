@@ -445,6 +445,52 @@ vim.g.clipboard = {
 }
 ```
 
+## agents-docs ドキュメント管理
+
+### 概要
+vimcontainerでエージェントが出力するドキュメントを管理する仕組みです。
+
+### 仕組み
+- `agents-docs/` ディレクトリ配下に各環境固有のディレクトリが作成されます
+- コンテナ内の `/docs` にマウントされ、エージェントはそこにドキュメントを出力します
+- 環境固有のディレクトリ名はワークスペースパスのハッシュ値から生成されます
+
+### ディレクトリ構造
+
+```
+agents-docs/
+├── .gitkeep
+└── {workspace-hash}/     # 各環境固有（例: a1b2c3d4/）
+    └── {task-name}/      # タスクごとのディレクトリ
+        ├── parent-*.md   # 親エージェントのドキュメント
+        └── child-*.md    # 子エージェントのドキュメント
+```
+
+### ドキュメントの出力ルール
+- マークダウン形式で出力
+- 図には可能な限りmermaidを使用
+- parent-agentがタスク毎に親ディレクトリを作成
+- child-agentが連番でサブディレクトリを作成
+
+### プレビュー方法
+Docusaurusを使用してagents-docsのドキュメントをブラウザでプレビューできます：
+
+```bash
+cd agents-docs-preview
+npm install
+npm run dev
+```
+
+ブラウザで http://localhost:3000 にアクセスしてください。
+
+### 設定ファイル
+
+| ファイル | 説明 |
+|---------|------|
+| `agents/opus-parent-agent.md` | 親エージェントのドキュメント出力ルール |
+| `agents/opus-child-agent.md` | 子エージェントのドキュメント出力ルール |
+| `bin/vimcontainer` | agents-docsのマウント設定 |
+
 ## よくある質問
 
 ### Q: コンテナが毎回新しく作成されてしまう
