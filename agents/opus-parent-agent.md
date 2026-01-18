@@ -82,7 +82,8 @@ model: claude-opus-4.5
 2. **ドキュメント出力先の絶対パスまたは未設定の明記**
    - DOCS_ROOTが設定されている場合:
      - 作成済みディレクトリの絶対パスを渡す
-     - 例: `ドキュメント出力先: /docs/devcontainer-main-タスク名/1-1/`
+     - 直列タスクの例: `ドキュメント出力先: /docs/devcontainer-main-タスク名/001/`
+     - 並列タスクの例: `ドキュメント出力先: /docs/devcontainer-main-タスク名/002-1/`
    - DOCS_ROOTが未設定の場合:
      - 必ず未設定であることを明記する
      - 例: `ドキュメント出力先: DOCS_ROOTは未設定（ドキュメント出力はスキップ）`
@@ -193,12 +194,21 @@ model: claude-opus-4.5
   3. 作成した絶対パスを子エージェントに渡す
 
 - **ディレクトリ命名規則:**
-  - 直列実行の場合: `<タスクフォルダの絶対パス>/<連番>/`
-  - 並列実行の場合: `<タスクフォルダの絶対パス>/<連番>-<並列依頼番号>/`
+  - **親タスク番号**: タスクの実行順序を示す3桁のゼロ埋め連番（001から開始）
+  - **直列実行の場合**: `<タスクフォルダの絶対パス>/<親タスク番号>/`
+    - 各直列タスクごとに親タスク番号をインクリメントする
+  - **並列実行の場合**: `<タスクフォルダの絶対パス>/<親タスク番号>-<サブ番号>/`
+    - 同時に実行される並列タスクは**同じ親タスク番号**を共有する
+    - サブ番号は1から開始し、並列タスクごとにインクリメント
+  - **命名規則のポイント**:
+    - 直列タスク: ハイフンなし（例: `001/`, `002/`）
+    - 並列タスク: ハイフンあり（例: `003-1/`, `003-2/`）
+    - ディレクトリ名を見るだけで直列/並列が判別可能
   - 例（絶対パス）:
-    - `/docs/devcontainer-feature-doc-update-機能追加タスク/1/`
-    - `/docs/devcontainer-feature-doc-update-機能追加タスク/2-1/`
-    - `/docs/devcontainer-feature-doc-update-機能追加タスク/2-2/`
+    - 直列タスク1: `/docs/devcontainer-feature-doc-update-機能追加タスク/001/`
+    - 直列タスク2: `/docs/devcontainer-feature-doc-update-機能追加タスク/002/`
+    - 並列タスク（2つ同時）: `/docs/devcontainer-feature-doc-update-機能追加タスク/003-1/`, `/docs/devcontainer-feature-doc-update-機能追加タスク/003-2/`
+    - 直列タスク3: `/docs/devcontainer-feature-doc-update-機能追加タスク/004/`
 
 ### Docusaurus互換マークダウン記述ルール
 
@@ -251,14 +261,30 @@ model: claude-opus-4.5
 # 2. タスクフォルダを作成
 mkdir -p /docs/devcontainer-main-機能追加タスク/
 
-# 3. 子エージェント用ディレクトリを事前作成（並列2タスクの場合）
-mkdir -p /docs/devcontainer-main-機能追加タスク/1-1/
-mkdir -p /docs/devcontainer-main-機能追加タスク/1-2/
+# === 例1: 直列タスクの場合 ===
+# 3a. 子エージェント用ディレクトリを事前作成（直列タスク）
+mkdir -p /docs/devcontainer-main-機能追加タスク/001/
 
-# 4. 子エージェントに以下の情報を渡して依頼
+# 4a. 子エージェントに以下の情報を渡して依頼
 #    - 作業ディレクトリ: /workspaces/devcontainer
-#    - ドキュメント出力先: /docs/devcontainer-main-機能追加タスク/1-1/
+#    - ドキュメント出力先: /docs/devcontainer-main-機能追加タスク/001/
 #    - DOCS_ROOT: /docs
+
+# === 例2: 並列タスク（2つ同時）の場合 ===
+# 3b. 子エージェント用ディレクトリを事前作成（並列タスク）
+#     同じ親タスク番号（002）を共有し、サブ番号で区別
+mkdir -p /docs/devcontainer-main-機能追加タスク/002-1/
+mkdir -p /docs/devcontainer-main-機能追加タスク/002-2/
+
+# 4b. 子エージェントに以下の情報を渡して依頼
+#    - 作業ディレクトリ: /workspaces/devcontainer
+#    - ドキュメント出力先（タスク1）: /docs/devcontainer-main-機能追加タスク/002-1/
+#    - ドキュメント出力先（タスク2）: /docs/devcontainer-main-機能追加タスク/002-2/
+#    - DOCS_ROOT: /docs
+
+# === 例3: 続いて直列タスクを実行する場合 ===
+# 次の直列タスクは親タスク番号をインクリメント（003）
+mkdir -p /docs/devcontainer-main-機能追加タスク/003/
 ```
 
 #### 補足事項にDOCS_ROOT情報がなく、環境変数が設定されている場合
@@ -271,13 +297,21 @@ echo $DOCS_ROOT  # 出力例: /docs
 # 2. タスクフォルダを作成
 mkdir -p /docs/devcontainer-main-機能追加タスク/
 
-# 3. 子エージェント用ディレクトリを事前作成（並列2タスクの場合）
-mkdir -p /docs/devcontainer-main-機能追加タスク/1-1/
-mkdir -p /docs/devcontainer-main-機能追加タスク/1-2/
+# === 例1: 直列タスク2つを順番に実行する場合 ===
+# 最初の直列タスク
+mkdir -p /docs/devcontainer-main-機能追加タスク/001/
+# → タスク完了後、次の直列タスク
+mkdir -p /docs/devcontainer-main-機能追加タスク/002/
+
+# === 例2: 並列タスク（3つ同時）の場合 ===
+# 同じ親タスク番号（003）を共有し、サブ番号で区別
+mkdir -p /docs/devcontainer-main-機能追加タスク/003-1/
+mkdir -p /docs/devcontainer-main-機能追加タスク/003-2/
+mkdir -p /docs/devcontainer-main-機能追加タスク/003-3/
 
 # 4. 子エージェントに以下の情報を渡して依頼
 #    - 作業ディレクトリ: /workspaces/devcontainer
-#    - ドキュメント出力先: /docs/devcontainer-main-機能追加タスク/1-1/
+#    - ドキュメント出力先: 上記で作成したディレクトリの絶対パス
 #    - DOCS_ROOT: /docs
 ```
 
