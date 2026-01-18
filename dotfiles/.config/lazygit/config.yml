@@ -1,0 +1,42 @@
+# Lazygit configuration for vimcontainer
+# See: https://github.com/jesseduffield/lazygit/blob/master/docs/Config.md
+
+gui:
+  # Theme
+  theme:
+    activeBorderColor:
+      - green
+      - bold
+    inactiveBorderColor:
+      - white
+    selectedLineBgColor:
+      - blue
+  # Show file icons (requires nerd fonts)
+  showFileIcons: true
+  # Show random tip on startup
+  showRandomTip: false
+  # Language for commits
+  language: "en"
+
+git:
+  # Auto fetch interval in seconds (0 = disabled)
+  autoFetch: false
+  # Auto refresh after focus gained
+  autoRefresh: true
+  # Commit prefix format
+  commitPrefix: null
+
+os:
+  # Edit command - use nvim
+  editCommand: "nvim"
+  editCommandTemplate: "{{editor}} {{filename}}"
+
+keybinding:
+  universal:
+    # Navigation
+    scrollUpMain: "<c-u>"
+    scrollDownMain: "<c-d>"
+
+# Disable update check
+update:
+  method: never

@@ -350,6 +350,7 @@ MOUNT_ARGS=""
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$WORKSPACE_PATH,target=/workspaces/$(basename $WORKSPACE_PATH)"
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$resolved_config_path,target=/home/vscode/.config/nvim"
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/dotfiles/.tmux.conf,target=/home/vscode/.tmux.conf"
+MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/dotfiles/.config/lazygit/config.yml,target=/home/vscode/.config/lazygit/config.yml"
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/scripts/start-tmux.sh,target=/usr/local/bin/start-tmux"
 
 # Add cplt command mount
@@ -398,10 +399,10 @@ if [ -f "$CLAUDE_AUTH_JSON" ]; then
     MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$CLAUDE_AUTH_JSON,target=/home/vscode/.claude.json"
 fi
 
-# Add gitconfig mount if it exists (read-only)
+# Add gitconfig mount if it exists
 if [ -f "$HOME/.gitconfig" ]; then
-    echo "Mounting gitconfig: $HOME/.gitconfig (read-only)"
-    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$HOME/.gitconfig,target=/home/vscode/.gitconfig,readonly"
+    echo "Mounting gitconfig: $HOME/.gitconfig"
+    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$HOME/.gitconfig,target=/home/vscode/.gitconfig"
 fi
 
 command="devcontainer up $rebuild_flag --workspace-folder $TEMP_WORKSPACE $MOUNT_ARGS --remote-env DOCS_ROOT=/docs --remote-env PROJECT_NAME=$WORKSPACE_NAME --additional-features='$ALL_PUBLIC_FEATURES'"
