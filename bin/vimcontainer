@@ -360,6 +360,10 @@ MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/bin/cplt,target=/
 echo "Mounting Copilot agents directory: $PROJECT_ROOT/agents"
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/agents,target=/home/vscode/.copilot/agents"
 
+# Add Copilot skills mount
+echo "Mounting Copilot skills directory: $PROJECT_ROOT/skills"
+MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/skills,target=/home/vscode/.copilot/skills"
+
 # Add Copilot config mounts if they exist
 COPILOT_DIR="$HOME/.copilot"
 
