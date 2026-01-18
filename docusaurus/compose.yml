@@ -1,0 +1,36 @@
+# agents-docs-preview Docker Compose設定
+# Docusaurusによるドキュメントプレビュー環境
+
+services:
+  agents-docs-preview:
+    build: .
+    container_name: agents-docs-preview
+    ports:
+      - "3000:3000"
+    volumes:
+      # agents-docsの内容を参照（読み取り専用）
+      - ../agents-docs:/app/docs-source:ro
+      # ソースコードをマウント（ホットリロード対応）
+      - ./src:/app/src
+      - ./docs:/app/docs
+      - ./static:/app/static
+      - ./scripts:/app/scripts
+      - ./docusaurus.config.js:/app/docusaurus.config.js
+      - ./sidebars.js:/app/sidebars.js
+      - ./sidebars.auto.js:/app/sidebars.auto.js
+      # node_modulesは名前付きボリュームで永続化（ホストと分離）
+      - node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped
+    # ヘルスチェック
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  node_modules:
+    name: agents-docs-preview-node-modules
