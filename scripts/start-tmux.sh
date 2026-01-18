@@ -9,8 +9,8 @@ export LANG=C.UTF-8
 WORKSPACE_DIR=$(ls -d /workspaces/*/ 2>/dev/null | head -n 1)
 
 if [ -z "$WORKSPACE_DIR" ]; then
-    echo "Error: No workspace directory found in /workspaces/"
-    exit 1
+	echo "Error: No workspace directory found in /workspaces/"
+	exit 1
 fi
 
 # Remove trailing slash
@@ -20,18 +20,18 @@ SESSION_NAME="dev"
 
 # Check if session already exists
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    echo "Session '$SESSION_NAME' already exists. Attaching..."
-    tmux attach-session -t "$SESSION_NAME"
-    exit 0
+	echo "Session '$SESSION_NAME' already exists. Attaching..."
+	tmux attach-session -t "$SESSION_NAME"
+	exit 0
 fi
 
 # Create new session with first window (nvim)
-tmux new-session -d -s "$SESSION_NAME" -n "nvim" -c "$WORKSPACE_DIR"
-tmux send-keys -t "$SESSION_NAME:1" "nvim ." C-m
+tmux new-session -d -s "$SESSION_NAME" -n "editor" -c "$WORKSPACE_DIR"
+# tmux send-keys -t "$SESSION_NAME:1" "nvim ." C-m
 
 # Create second window (Claude Code)
-tmux new-window -t "$SESSION_NAME:2" -n "claude" -c "$WORKSPACE_DIR"
-tmux send-keys -t "$SESSION_NAME:2" "claude" C-m
+tmux new-window -t "$SESSION_NAME:2" -n "copilot" -c "$WORKSPACE_DIR"
+# tmux send-keys -t "$SESSION_NAME:2" "cplt" C-m
 
 # Create third window (Bash)
 tmux new-window -t "$SESSION_NAME:3" -n "bash" -c "$WORKSPACE_DIR"

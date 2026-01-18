@@ -3,6 +3,15 @@ set -e
 
 echo "Installing GitHub Copilot CLI..."
 
+# Create .copilot directory for vscode user before mount
+# This ensures the directory exists with correct ownership
+COPILOT_DIR="/home/vscode/.copilot"
+if [ ! -d "$COPILOT_DIR" ]; then
+  mkdir -p "$COPILOT_DIR"
+  chown vscode:vscode "$COPILOT_DIR"
+  echo "Created $COPILOT_DIR with vscode:vscode ownership"
+fi
+
 VERSION="${VERSION:-latest}"
 INSTALL_DIR="/usr/local/bin"
 

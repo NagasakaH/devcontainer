@@ -49,5 +49,9 @@ fi
 chmod +x "$BIN_PATH/vimcontainer"
 echo "Made vimcontainer executable"
 
+# Make cplt executable
+chmod +x "$BIN_PATH/cplt"
+echo "Made cplt executable"
+
 # install lazyvim
 # https://github.com/NagasakaH/LazyVim

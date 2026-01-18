@@ -345,9 +345,30 @@ MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$resolved_config_path,target=/h
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/dotfiles/.tmux.conf,target=/home/vscode/.tmux.conf"
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/scripts/start-tmux.sh,target=/usr/local/bin/start-tmux"
 
+# Add cplt command mount
+MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/bin/cplt,target=/usr/local/bin/cplt"
+
 # Add Copilot agents mount
 echo "Mounting Copilot agents directory: $PROJECT_ROOT/agents"
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/agents,target=/home/vscode/.copilot/agents"
+
+# Add Copilot config mounts if they exist
+COPILOT_DIR="$HOME/.copilot"
+
+if [ -f "$COPILOT_DIR/mcp-config.json" ]; then
+    echo "Mounting Copilot MCP config: $COPILOT_DIR/mcp-config.json"
+    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$COPILOT_DIR/mcp-config.json,target=/home/vscode/.copilot/mcp-config.json"
+fi
+
+if [ -f "$COPILOT_DIR/config.json" ]; then
+    echo "Mounting Copilot config: $COPILOT_DIR/config.json"
+    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$COPILOT_DIR/config.json,target=/home/vscode/.copilot/config.json"
+fi
+
+if [ -d "$COPILOT_DIR/skills" ]; then
+    echo "Mounting Copilot skills directory: $COPILOT_DIR/skills"
+    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$COPILOT_DIR/skills,target=/home/vscode/.copilot/skills"
+fi
 
 # Add agents-docs mount for document output
 AGENTS_DOCS_DIR="$PROJECT_ROOT/agents-docs/$WORKSPACE_HASH"

@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# tmux window名変更機能
+ORIGINAL_WINDOW_NAME=""
+
+restore_window_name() {
+    if [[ -n "$TMUX" && -n "$ORIGINAL_WINDOW_NAME" ]]; then
+        tmux rename-window "$ORIGINAL_WINDOW_NAME"
+    fi
+}
+
+if [[ -n "$TMUX" ]]; then
+    ORIGINAL_WINDOW_NAME=$(tmux display-message -p '#W')
+    tmux rename-window "copilot"
+    trap restore_window_name EXIT INT TERM
+fi
+
+# -rオプションを検出して--resumeに変換
+RESUME_FLAG=""
+OTHER_ARGS=()
+
+for arg in "$@"; do
+    if [[ "$arg" == "-r" ]]; then
+        RESUME_FLAG="--resume"
+    else
+        OTHER_ARGS+=("$arg")
+    fi
+done
+
+copilot --allow-all --agent call-opus-agent $RESUME_FLAG "${OTHER_ARGS[@]}"
