@@ -36,7 +36,7 @@ model: claude-opus-4.5
 
 ### 重要：補足事項の優先使用
 
-- **補足事項でDOCS_ROOT情報が提供されている場合、`echo $DOCS_ROOT` の実行は不要**
+- **補足事項でDOCS_ROOT情報が提供されている場合、`get-docs-root` スキルの実行は不要**
 - 提供された値をそのまま使用し、子エージェント（opus-child-agent）にも同様に伝達する
 - 補足事項に情報がない場合のみ、環境変数を確認するフォールバック処理を行う
 
@@ -48,14 +48,14 @@ model: claude-opus-4.5
 
 **注意: 補足事項にDOCS_ROOT情報が既に含まれている場合は、このステップをスキップしてください。**
 
-補足事項にDOCS_ROOT情報がない場合のみ、以下のチェックを実行：
+補足事項にDOCS_ROOT情報がない場合のみ、`get-docs-root` スキルを使用して確認：
 
 ```bash
-echo $DOCS_ROOT
+python3 skills/get-docs-root/scripts/get_docs_root.py
 ```
 
 - **値が出力された場合**: 展開済みの絶対パスを記録（例: `/docs`）
-- **空文字列または何も出力されない場合**: 「未設定」と記録
+- **空行または何も出力されない場合**: 「未設定」と記録
 
 ### 収集すべき情報の一覧
 
@@ -75,7 +75,7 @@ echo $DOCS_ROOT
 
 - `$DOCS_ROOT` のような変数形式ではなく、必ず展開後の実際のパスを使用すること
 - **補足事項でDOCS_ROOT情報が提供されている場合は、環境変数チェックをスキップし、その値をそのまま使用すること**
-- **補足事項にDOCS_ROOT情報がない場合のみ、`echo $DOCS_ROOT` で確認すること**
+- **補足事項にDOCS_ROOT情報がない場合のみ、`get-docs-root` スキルで確認すること**
 
 ## サブエージェントへの依頼時の必須事項
 
@@ -95,7 +95,7 @@ echo $DOCS_ROOT
        B{補足事項にDOCS_ROOT情報あり?}
        B -->|Yes: 設定済みと明記| C[その値を絶対パスとして使用]
        B -->|Yes: 未設定と明記| D[ドキュメント出力スキップ]
-       B -->|No: 記載なし| E["echo $DOCS_ROOTで確認"]
+        B -->|No: 記載なし| E["スキルで確認"]
        E --> F{値が取得できた?}
        F -->|Yes| C
        F -->|No| D
@@ -114,7 +114,7 @@ echo $DOCS_ROOT
      - 環境変数の再チェックは**不要**
 
    **優先順位2: 補足事項に情報がない場合**
-   - `echo $DOCS_ROOT` コマンドでDOCS_ROOT環境変数の値を確認する
+   - `get-docs-root` スキルでDOCS_ROOT環境変数の値を確認する
    - 値が空または未設定の場合:
      - ドキュメント出力は**スキップ**する
      - 子エージェントには「DOCS_ROOTは未設定」と明記して依頼する
@@ -242,7 +242,7 @@ echo $DOCS_ROOT
 - **タスク開始時に親エージェントが行うこと:**
   1. DOCS_ROOT情報を確認する（**優先順位に従う**）
      - **補足事項に情報がある場合**: その値を使用（環境変数チェック不要）
-     - **補足事項に情報がない場合**: `echo $DOCS_ROOT` コマンドで環境変数の値を確認する
+     - **補足事項に情報がない場合**: `get-docs-root` スキルで環境変数の値を確認する
   2. DOCS_ROOTが**未設定または空**の場合:
      - ドキュメント出力はスキップする
      - 以降のディレクトリ作成手順は不要
@@ -354,9 +354,9 @@ mkdir -p /docs/devcontainer-main-機能追加タスク/003/
 #### 補足事項にDOCS_ROOT情報がなく、環境変数が設定されている場合
 
 ```bash
-# 補足事項に情報がないため、環境変数を確認
-# 1. 環境変数を確認
-echo $DOCS_ROOT  # 出力例: /docs
+# 補足事項に情報がないため、get-docs-rootスキルで確認
+# 1. DOCS_ROOTを確認
+python3 skills/get-docs-root/scripts/get_docs_root.py  # 出力例: /docs
 
 # 2. タスクフォルダを作成
 mkdir -p /docs/devcontainer-main-機能追加タスク/
@@ -393,9 +393,9 @@ mkdir -p /docs/devcontainer-main-機能追加タスク/003-3/
 #### 補足事項に情報がなく、環境変数も未設定の場合
 
 ```bash
-# 補足事項に情報がないため、環境変数を確認
-# 1. 環境変数を確認
-echo $DOCS_ROOT  # 出力: (空)
+# 補足事項に情報がないため、get-docs-rootスキルで確認
+# 1. DOCS_ROOTを確認
+python3 skills/get-docs-root/scripts/get_docs_root.py  # 出力: (空行)
 
 # 2. ドキュメント出力はスキップ - ディレクトリ作成は不要
 
