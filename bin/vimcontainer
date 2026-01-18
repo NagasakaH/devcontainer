@@ -11,193 +11,27 @@ DEVCONTAINERS_DIR="$PROJECT_ROOT/devcontainers"
 COMMON_FEATURES_FILE="$DEVCONTAINERS_DIR/common/features.json"
 
 # Usage: vimcontainer [options] <image_name> <workspace_path>
+#        vimcontainer [options] <image_name_or_path> [workspace_path]
 # Options:
 #   -r, --rebuild: Rebuild the container
-#   -R, --restore: Restore original devcontainer.json from backup
-#   -n, --no-user-devcontainer: Ignore user's .devcontainer, use template
 #
 # Arguments:
-#   image_name: Name of the devcontainer template (e.g., 'dotnet', 'react')
-#   workspace_path: Path to use as workspace in the container
-
-#=============================================================================
-# .devcontainer編集機能 関数群
-#=============================================================================
-
-# .devcontainer検出
-detect_user_devcontainer() {
-    local workspace_path="$1"
-    local devcontainer_dir="$workspace_path/.devcontainer"
-    local devcontainer_json="$devcontainer_dir/devcontainer.json"
-    
-    # Step 1: ディレクトリ存在確認
-    [ -d "$devcontainer_dir" ] || return 1
-    
-    # Step 2: devcontainer.json存在確認
-    [ -f "$devcontainer_json" ] || return 1
-    
-    # Step 3: JSON妥当性確認
-    jq empty "$devcontainer_json" 2>/dev/null || return 1
-    
-    return 0
-}
-
-# バックアップ作成
-backup_devcontainer_json() {
-    local devcontainer_json="$1"
-    local backup_file="${devcontainer_json}.vimcontainer-backup"
-    
-    # バックアップ作成（既存があれば上書き）
-    cp "$devcontainer_json" "$backup_file"
-    echo "Created backup: $backup_file"
-}
-
-# バックアップから復元
-restore_devcontainer_json() {
-    local devcontainer_json="$1"
-    local backup_file="${devcontainer_json}.vimcontainer-backup"
-    local devcontainer_dir=$(dirname "$devcontainer_json")
-    
-    if [ ! -f "$backup_file" ]; then
-        echo "Error: No backup found at $backup_file"
-        return 1
-    fi
-    
-    # バックアップから復元
-    mv "$backup_file" "$devcontainer_json"
-    echo "Restored from backup: $devcontainer_json"
-    
-    # コピーしたlocalFeaturesを削除
-    for feature_name in "${ALL_LOCAL_FEATURES[@]}"; do
-        local feature_dir="$devcontainer_dir/$feature_name"
-        if [ -d "$feature_dir" ]; then
-            rm -rf "$feature_dir"
-            echo "Removed injected feature: $feature_name"
-        fi
-    done
-}
-
-# localFeaturesをユーザーの.devcontainerにコピー
-copy_local_features_to_user_devcontainer() {
-    local devcontainer_dir="$1"
-    
-    for feature_name in "${ALL_LOCAL_FEATURES[@]}"; do
-        local src_feature="$PROJECT_ROOT/features/$feature_name"
-        local dest_feature="$devcontainer_dir/$feature_name"
-        
-        if [ -d "$src_feature" ]; then
-            # 既存があれば削除して再コピー
-            [ -d "$dest_feature" ] && rm -rf "$dest_feature"
-            cp -r "$src_feature" "$dest_feature"
-            echo "Copied local feature: $feature_name -> $dest_feature"
-        else
-            echo "Warning: Local feature not found: $feature_name"
-        fi
-    done
-}
-
-# devcontainer.jsonにvimcontainer featuresを注入
-inject_vimcontainer_features() {
-    local devcontainer_json="$1"
-    local temp_file="${devcontainer_json}.tmp"
-    
-    # 1. localFeaturesをコピー先パスとして追加
-    local local_features_json="{}"
-    for feature_name in "${ALL_LOCAL_FEATURES[@]}"; do
-        # Get feature options from config files
-        local feature_options="{}"
-        
-        # Check common features config
-        if [ -f "$COMMON_FEATURES_FILE" ]; then
-            local options=$(jq -r --arg name "$feature_name" \
-                '.localFeatures[] | select(.name == $name) | .options // {}' \
-                "$COMMON_FEATURES_FILE")
-            [ "$options" != "" ] && [ "$options" != "null" ] && feature_options="$options"
-        fi
-        
-        # Check image-specific config (overrides common)
-        if [ -f "$IMAGE_FEATURES_FILE" ]; then
-            local options=$(jq -r --arg name "$feature_name" \
-                '.localFeatures[] | select(.name == $name) | .options // {}' \
-                "$IMAGE_FEATURES_FILE")
-            [ "$options" != "" ] && [ "$options" != "null" ] && feature_options="$options"
-        fi
-        
-        local_features_json=$(echo "$local_features_json" | \
-            jq --arg path "./$feature_name" \
-               --argjson opts "$feature_options" \
-               '. + {($path): $opts}')
-    done
-    
-    # 2. featuresをマージ（既存featuresを保持しつつ追加）
-    if ! jq --argjson local_features "$local_features_json" \
-       --argjson public_features "$ALL_PUBLIC_FEATURES" \
-       '.features = ((.features // {}) + $local_features + $public_features)' \
-       "$devcontainer_json" > "$temp_file" 2>/dev/null; then
-        rm -f "$temp_file"
-        return 1
-    fi
-    
-    # 3. postCreateCommandの処理（既存があれば連結）
-    if [ -n "$POST_CREATE_COMMAND" ]; then
-        local existing_cmd=$(jq -r '.postCreateCommand // ""' "$temp_file")
-        local combined_cmd=""
-        if [ -n "$existing_cmd" ] && [ "$existing_cmd" != "null" ]; then
-            # 既存コマンドがある場合は連結
-            combined_cmd="$existing_cmd && $POST_CREATE_COMMAND"
-        else
-            combined_cmd="$POST_CREATE_COMMAND"
-        fi
-        if ! jq --arg cmd "$combined_cmd" \
-           '.postCreateCommand = $cmd' \
-           "$temp_file" > "${temp_file}.2" 2>/dev/null; then
-            rm -f "$temp_file" "${temp_file}.2"
-            return 1
-        fi
-        mv "${temp_file}.2" "$temp_file"
-    fi
-    
-    mv "$temp_file" "$devcontainer_json"
-    return 0
-}
-
-# JSON編集エラー時のハンドリング
-handle_json_edit_error() {
-    local devcontainer_json="$1"
-    local backup_file="${devcontainer_json}.vimcontainer-backup"
-    
-    echo "Error: Failed to edit devcontainer.json"
-    
-    if [ -f "$backup_file" ]; then
-        echo "Restoring from backup..."
-        cp "$backup_file" "$devcontainer_json"
-        echo "Restored original devcontainer.json"
-    fi
-    
-    exit 1
-}
-
-#=============================================================================
-# 引数解析
-#=============================================================================
+#   image_name_or_path: Either:
+#                       - Name of devcontainer template (e.g., 'dotnet', 'react')
+#                       - Path containing .devcontainer folder (legacy mode)
+#   workspace_path: Path to use as workspace in the container (default: current directory)
+#
+# Examples:
+#   vimcontainer dotnet .                    # Use dotnet template with current dir
+#   vimcontainer dotnet ~/my-project         # Use dotnet template with specified project
+#   vimcontainer ~/custom/.devcontainer ~/project  # Use custom devcontainer (legacy)
 
 # Parse arguments
 rebuild_flag=""
-restore_flag=""
-ignore_user_devcontainer=""
-
 while [[ "$1" =~ ^- ]]; do
     case "$1" in
         -r|--rebuild)
             rebuild_flag="--remove-existing-container"
-            shift
-            ;;
-        -R|--restore)
-            restore_flag="true"
-            shift
-            ;;
-        -n|--no-user-devcontainer)
-            ignore_user_devcontainer="true"
             shift
             ;;
         *)
@@ -207,64 +41,80 @@ while [[ "$1" =~ ^- ]]; do
     esac
 done
 
-IMAGE_NAME="$1"
+IMAGE_NAME_OR_PATH="$1"
 WORKSPACE_PATH="${2:-.}"
 
 # Validate arguments
-if [ -z "$IMAGE_NAME" ]; then
-    echo "Usage: vimcontainer [options] <image_name> [workspace_path]"
+if [ -z "$IMAGE_NAME_OR_PATH" ]; then
+    echo "Usage: vimcontainer [options] <image_name_or_path> [workspace_path]"
     echo ""
     echo "Options:"
-    echo "  -r, --rebuild              Rebuild the container"
-    echo "  -R, --restore              Restore original devcontainer.json from backup"
-    echo "  -n, --no-user-devcontainer Ignore user's .devcontainer, use template"
+    echo "  -r, --rebuild         Rebuild the container"
     echo ""
     echo "Arguments:"
-    echo "  image_name            Name of devcontainer template (e.g., 'dotnet', 'react')"
+    echo "  image_name_or_path    Either a template name or path to .devcontainer"
     echo "  workspace_path        Path to use as workspace (default: current directory)"
     echo ""
-    echo "Behavior:"
-    echo "  If workspace_path contains .devcontainer/, vimcontainer will:"
-    echo "    1. Backup the existing devcontainer.json"
-    echo "    2. Inject vimcontainer features into it"
-    echo "    3. Use the user's .devcontainer configuration"
-    echo ""
-    echo "  Use -n to force using template instead of user's .devcontainer"
-    echo ""
-    echo "Available images:"
+    echo "Available templates:"
     for img_dir in "$DEVCONTAINERS_DIR"/*; do
         if [ -d "$img_dir" ] && [ "$(basename "$img_dir")" != "common" ]; then
             echo "  - $(basename "$img_dir")"
         fi
     done
+    echo ""
+    echo "Examples:"
+    echo "  vimcontainer dotnet .                    # Use dotnet template"
+    echo "  vimcontainer dotnet ~/my-project         # Use dotnet template with project"
     exit 1
 fi
 
 # Resolve workspace path
 WORKSPACE_PATH=$(readlink -f "$WORKSPACE_PATH")
 
-# === .devcontainer検出とモード判定 ===
-USER_DEVCONTAINER="$WORKSPACE_PATH/.devcontainer"
-USER_DEVCONTAINER_JSON="$USER_DEVCONTAINER/devcontainer.json"
-USE_USER_DEVCONTAINER=false
+# Determine if first argument is a path or template name
+DEVCONTAINER_FOLDER=""
+IMAGE_FEATURES_FILE=""
 
-if [ "$ignore_user_devcontainer" != "true" ] && detect_user_devcontainer "$WORKSPACE_PATH"; then
-    USE_USER_DEVCONTAINER=true
-    echo "Detected user .devcontainer at: $USER_DEVCONTAINER"
-fi
-# === .devcontainer検出ここまで ===
+# Check if it's a path with .devcontainer folder (legacy mode)
+RESOLVED_PATH=$(readlink -f "$IMAGE_NAME_OR_PATH" 2>/dev/null || echo "$IMAGE_NAME_OR_PATH")
+if [ -d "$RESOLVED_PATH/.devcontainer" ]; then
+    # Legacy mode: first argument is a path containing .devcontainer
+    DEVCONTAINER_FOLDER="$RESOLVED_PATH/.devcontainer"
+    IMAGE_NAME=$(basename "$RESOLVED_PATH")
+    echo "Using custom .devcontainer from: $DEVCONTAINER_FOLDER"
 
-# Resolve devcontainer template path
-DEVCONTAINER_TEMPLATE="$DEVCONTAINERS_DIR/$IMAGE_NAME"
-IMAGE_FEATURES_FILE="$DEVCONTAINER_TEMPLATE/features.json"
-DEVCONTAINER_FOLDER="$DEVCONTAINER_TEMPLATE/.devcontainer"
+    # Look for features.json in the same directory
+    IMAGE_FEATURES_FILE="$RESOLVED_PATH/features.json"
+    if [ ! -f "$IMAGE_FEATURES_FILE" ]; then
+        echo "Warning: No features.json found at $IMAGE_FEATURES_FILE"
+        echo "Creating minimal features.json for custom devcontainer"
+        # Create a minimal features.json for custom devcontainers
+        IMAGE_FEATURES_FILE="/tmp/vimcontainer-custom-features-$$.json"
+        echo '{"localFeatures":[],"publicFeatures":{}}' > "$IMAGE_FEATURES_FILE"
+    fi
+elif [ -d "$RESOLVED_PATH" ] && [ -f "$RESOLVED_PATH/devcontainer.json" ]; then
+    # Path points directly to .devcontainer folder
+    DEVCONTAINER_FOLDER="$RESOLVED_PATH"
+    IMAGE_NAME=$(basename $(dirname "$RESOLVED_PATH"))
+    echo "Using custom .devcontainer from: $DEVCONTAINER_FOLDER"
 
-# ユーザーdevcontainerを使用しない場合のみテンプレートチェックを行う
-if [ "$USE_USER_DEVCONTAINER" = false ]; then
+    # Look for features.json in parent directory
+    IMAGE_FEATURES_FILE="$(dirname "$RESOLVED_PATH")/features.json"
+    if [ ! -f "$IMAGE_FEATURES_FILE" ]; then
+        echo "Warning: No features.json found at $IMAGE_FEATURES_FILE"
+        echo "Creating minimal features.json for custom devcontainer"
+        IMAGE_FEATURES_FILE="/tmp/vimcontainer-custom-features-$$.json"
+        echo '{"localFeatures":[],"publicFeatures":{}}' > "$IMAGE_FEATURES_FILE"
+    fi
+else
+    # Template name mode: look up in devcontainers directory
+    IMAGE_NAME="$IMAGE_NAME_OR_PATH"
+    DEVCONTAINER_TEMPLATE="$DEVCONTAINERS_DIR/$IMAGE_NAME"
+
     if [ ! -d "$DEVCONTAINER_TEMPLATE" ]; then
-        echo "Error: Image '$IMAGE_NAME' not found at $DEVCONTAINER_TEMPLATE"
+        echo "Error: Template '$IMAGE_NAME' not found at $DEVCONTAINER_TEMPLATE"
         echo ""
-        echo "Available images:"
+        echo "Available templates:"
         for img_dir in "$DEVCONTAINERS_DIR"/*; do
             if [ -d "$img_dir" ] && [ "$(basename "$img_dir")" != "common" ]; then
                 echo "  - $(basename "$img_dir")"
@@ -273,18 +123,38 @@ if [ "$USE_USER_DEVCONTAINER" = false ]; then
         exit 1
     fi
 
-    # Check for .devcontainer folder
+    DEVCONTAINER_FOLDER="$DEVCONTAINER_TEMPLATE/.devcontainer"
     if [ ! -d "$DEVCONTAINER_FOLDER" ]; then
         echo "Error: No .devcontainer folder found in $DEVCONTAINER_TEMPLATE"
         exit 1
     fi
 
-    # Check for features.json
+    IMAGE_FEATURES_FILE="$DEVCONTAINER_TEMPLATE/features.json"
     if [ ! -f "$IMAGE_FEATURES_FILE" ]; then
         echo "Error: No features.json found at $IMAGE_FEATURES_FILE"
         exit 1
     fi
+
+    echo "Using template: $IMAGE_NAME"
 fi
+
+# Create temporary workspace with consistent name based on workspace path
+# This ensures the same workspace always gets the same temp directory and container
+WORKSPACE_HASH=$(echo -n "$WORKSPACE_PATH" | md5sum | cut -d' ' -f1 | cut -c1-8)
+TEMP_WORKSPACE="/tmp/vimcontainer-${WORKSPACE_HASH}"
+
+# Clean up old temp workspace if it exists and we're rebuilding
+if [ -n "$rebuild_flag" ] && [ -d "$TEMP_WORKSPACE" ]; then
+    rm -rf "$TEMP_WORKSPACE"
+    echo "Cleaned up old temporary workspace for rebuild"
+fi
+
+mkdir -p "$TEMP_WORKSPACE"
+TEMP_DEVCONTAINER="$TEMP_WORKSPACE/.devcontainer"
+
+echo "Using temporary workspace at: $TEMP_WORKSPACE"
+echo "Source .devcontainer: $DEVCONTAINER_FOLDER"
+echo "Workspace path: $WORKSPACE_PATH"
 
 # Function to load and merge feature configurations
 load_features_config() {
@@ -342,152 +212,85 @@ load_features_config() {
 # Call the function
 load_features_config
 
-# === リストアモードの処理 ===
-if [ "$restore_flag" = "true" ]; then
-    if [ "$USE_USER_DEVCONTAINER" = true ]; then
-        echo "Restoring devcontainer.json from backup..."
-        restore_devcontainer_json "$USER_DEVCONTAINER_JSON"
-        echo "Restore completed."
-        exit 0
-    else
-        echo "Error: No user .devcontainer found to restore"
-        echo "Restore is only available when workspace contains .devcontainer/"
-        exit 1
-    fi
-fi
-# === リストアモードここまで ===
+# Only copy .devcontainer and features if they don't exist or if rebuilding
+if [ ! -d "$TEMP_DEVCONTAINER" ] || [ -n "$rebuild_flag" ]; then
+    echo "Setting up .devcontainer configuration..."
 
-# === モード分岐処理 ===
-if [ "$USE_USER_DEVCONTAINER" = true ]; then
-    # === モードA: ユーザーdevcontainer.json編集モード ===
-    echo "Using user's .devcontainer configuration (Mode A)"
-    echo "Workspace path: $WORKSPACE_PATH"
-    
-    # バックアップ作成（再ビルド時または初回）
-    if [ -n "$rebuild_flag" ] || [ ! -f "${USER_DEVCONTAINER_JSON}.vimcontainer-backup" ]; then
-        backup_devcontainer_json "$USER_DEVCONTAINER_JSON"
-    else
-        echo "Using existing backup (use -r to refresh backup)"
+    # Remove old .devcontainer if it exists
+    if [ -d "$TEMP_DEVCONTAINER" ]; then
+        rm -rf "$TEMP_DEVCONTAINER"
     fi
-    
-    # localFeaturesをコピー
-    copy_local_features_to_user_devcontainer "$USER_DEVCONTAINER"
-    
-    # devcontainer.jsonを編集
-    if ! inject_vimcontainer_features "$USER_DEVCONTAINER_JSON"; then
-        handle_json_edit_error "$USER_DEVCONTAINER_JSON"
-    fi
-    echo "Injected vimcontainer features into devcontainer.json"
-    
-    # devcontainer upで使用するパス
-    DEVCONTAINER_WORKSPACE="$WORKSPACE_PATH"
-    
-else
-    # === モードB: 従来のテンプレートベースモード ===
-    echo "Using template-based configuration (Mode B)"
-    
-    # Create temporary workspace with consistent name based on workspace path
-    # This ensures the same workspace always gets the same temp directory and container
-    WORKSPACE_HASH=$(echo -n "$WORKSPACE_PATH" | md5sum | cut -d' ' -f1 | cut -c1-8)
-    TEMP_WORKSPACE="/tmp/vimcontainer-${WORKSPACE_HASH}"
-    
-    # Clean up old temp workspace if it exists and we're rebuilding
-    if [ -n "$rebuild_flag" ] && [ -d "$TEMP_WORKSPACE" ]; then
-        rm -rf "$TEMP_WORKSPACE"
-        echo "Cleaned up old temporary workspace for rebuild"
-    fi
-    
-    mkdir -p "$TEMP_WORKSPACE"
-    TEMP_DEVCONTAINER="$TEMP_WORKSPACE/.devcontainer"
-    
-    echo "Using temporary workspace at: $TEMP_WORKSPACE"
-    echo "Source .devcontainer: $DEVCONTAINER_FOLDER"
-    echo "Workspace path: $WORKSPACE_PATH"
-    
-    # Only copy .devcontainer and features if they don't exist or if rebuilding
-    if [ ! -d "$TEMP_DEVCONTAINER" ] || [ -n "$rebuild_flag" ]; then
-        echo "Setting up .devcontainer configuration..."
 
-        # Remove old .devcontainer if it exists
-        if [ -d "$TEMP_DEVCONTAINER" ]; then
-            rm -rf "$TEMP_DEVCONTAINER"
+    # Copy .devcontainer to temp location
+    cp -r "$DEVCONTAINER_FOLDER" "$TEMP_DEVCONTAINER"
+
+    # Copy local features to temp .devcontainer
+    for feature_name in "${ALL_LOCAL_FEATURES[@]}"; do
+        if [ -d "$PROJECT_ROOT/features/$feature_name" ]; then
+            cp -r "$PROJECT_ROOT/features/$feature_name" "$TEMP_DEVCONTAINER/$feature_name"
+            echo "Copied local feature: $feature_name"
+        else
+            echo "Warning: Feature '$feature_name' not found in $PROJECT_ROOT/features/"
+        fi
+    done
+
+    # Build local features JSON for merging
+    LOCAL_FEATURES_JSON="{}"
+    for feature_name in "${ALL_LOCAL_FEATURES[@]}"; do
+        # Get feature options from config files
+        feature_options="{}"
+
+        # Check common features config
+        if [ -f "$COMMON_FEATURES_FILE" ]; then
+            options=$(jq -r --arg name "$feature_name" \
+                '.localFeatures[] | select(.name == $name) | .options // {}' \
+                "$COMMON_FEATURES_FILE")
+            [ "$options" != "" ] && feature_options="$options"
         fi
 
-        # Copy .devcontainer to temp location
-        cp -r "$DEVCONTAINER_FOLDER" "$TEMP_DEVCONTAINER"
+        # Check image-specific config (overrides common)
+        if [ -f "$IMAGE_FEATURES_FILE" ]; then
+            options=$(jq -r --arg name "$feature_name" \
+                '.localFeatures[] | select(.name == $name) | .options // {}' \
+                "$IMAGE_FEATURES_FILE")
+            [ "$options" != "" ] && feature_options="$options"
+        fi
 
-        # Copy local features to temp .devcontainer
-        for feature_name in "${ALL_LOCAL_FEATURES[@]}"; do
-            if [ -d "$PROJECT_ROOT/features/$feature_name" ]; then
-                cp -r "$PROJECT_ROOT/features/$feature_name" "$TEMP_DEVCONTAINER/$feature_name"
-                echo "Copied local feature: $feature_name"
-            else
-                echo "Warning: Feature '$feature_name' not found in $PROJECT_ROOT/features/"
-            fi
-        done
+        # Add to features JSON
+        LOCAL_FEATURES_JSON=$(echo "$LOCAL_FEATURES_JSON" | \
+            jq --arg path "./$feature_name" \
+               --argjson opts "$feature_options" \
+               '. + {($path): $opts}')
+    done
 
-        # Build local features JSON for merging
-        LOCAL_FEATURES_JSON="{}"
-        for feature_name in "${ALL_LOCAL_FEATURES[@]}"; do
-            # Get feature options from config files
-            feature_options="{}"
+    # Merge everything into devcontainer.json
+    ORIGINAL_JSON="$TEMP_DEVCONTAINER/devcontainer.json"
+    if [ -f "$ORIGINAL_JSON" ]; then
+        # Add local features
+        if [ "${#ALL_LOCAL_FEATURES[@]}" -gt 0 ]; then
+            jq --argjson features "$LOCAL_FEATURES_JSON" \
+               '.features += $features' \
+               "$ORIGINAL_JSON" > "$ORIGINAL_JSON.tmp"
+            mv "$ORIGINAL_JSON.tmp" "$ORIGINAL_JSON"
+            echo "Merged ${#ALL_LOCAL_FEATURES[@]} local features into devcontainer.json"
+        fi
 
-            # Check common features config
-            if [ -f "$COMMON_FEATURES_FILE" ]; then
-                options=$(jq -r --arg name "$feature_name" \
-                    '.localFeatures[] | select(.name == $name) | .options // {}' \
-                    "$COMMON_FEATURES_FILE")
-                [ "$options" != "" ] && feature_options="$options"
-            fi
-
-            # Check image-specific config (overrides common)
-            if [ -f "$IMAGE_FEATURES_FILE" ]; then
-                options=$(jq -r --arg name "$feature_name" \
-                    '.localFeatures[] | select(.name == $name) | .options // {}' \
-                    "$IMAGE_FEATURES_FILE")
-                [ "$options" != "" ] && feature_options="$options"
-            fi
-
-            # Add to features JSON
-            LOCAL_FEATURES_JSON=$(echo "$LOCAL_FEATURES_JSON" | \
-                jq --arg path "./$feature_name" \
-                   --argjson opts "$feature_options" \
-                   '. + {($path): $opts}')
-        done
-
-        # Merge everything into devcontainer.json
-        ORIGINAL_JSON="$TEMP_DEVCONTAINER/devcontainer.json"
-        if [ -f "$ORIGINAL_JSON" ]; then
-            # Add local features
-            if [ "${#ALL_LOCAL_FEATURES[@]}" -gt 0 ]; then
-                jq --argjson features "$LOCAL_FEATURES_JSON" \
-                   '.features += $features' \
+        # Add postCreateCommand if specified and not already present
+        if [ -n "$POST_CREATE_COMMAND" ]; then
+            if ! jq -e '.postCreateCommand' "$ORIGINAL_JSON" > /dev/null 2>&1; then
+                jq --arg cmd "$POST_CREATE_COMMAND" \
+                   '.postCreateCommand = $cmd' \
                    "$ORIGINAL_JSON" > "$ORIGINAL_JSON.tmp"
                 mv "$ORIGINAL_JSON.tmp" "$ORIGINAL_JSON"
-                echo "Merged ${#ALL_LOCAL_FEATURES[@]} local features into devcontainer.json"
+                echo "Added postCreateCommand"
             fi
-
-            # Add postCreateCommand if specified and not already present
-            if [ -n "$POST_CREATE_COMMAND" ]; then
-                if ! jq -e '.postCreateCommand' "$ORIGINAL_JSON" > /dev/null 2>&1; then
-                    jq --arg cmd "$POST_CREATE_COMMAND" \
-                       '.postCreateCommand = $cmd' \
-                       "$ORIGINAL_JSON" > "$ORIGINAL_JSON.tmp"
-                    mv "$ORIGINAL_JSON.tmp" "$ORIGINAL_JSON"
-                    echo "Added postCreateCommand"
-                fi
-            fi
-
-            echo "Merged features configuration into devcontainer.json"
         fi
-    else
-        echo "Using existing .devcontainer configuration (use -r to rebuild)"
+
+        echo "Merged features configuration into devcontainer.json"
     fi
-    
-    # devcontainer upで使用するパス
-    DEVCONTAINER_WORKSPACE="$TEMP_WORKSPACE"
+else
+    echo "Using existing .devcontainer configuration (use -r to rebuild)"
 fi
-# === モード分岐ここまで ===
 
 # Get the Neovim config path (shared across all containers)
 # Use LazyVim submodule from the project instead of user's config
@@ -527,8 +330,7 @@ cleanup() {
     # Only cleanup on interrupt (INT/TERM), not on normal exit
     # This preserves the temp workspace for container reuse
     if [ "$1" = "force" ]; then
-        # モードBの場合のみ一時ワークスペースをクリーンアップ
-        if [ "$USE_USER_DEVCONTAINER" = false ] && [ -d "$TEMP_WORKSPACE" ]; then
+        if [ -d "$TEMP_WORKSPACE" ]; then
             rm -rf "$TEMP_WORKSPACE"
             echo "Cleaned up temporary workspace"
         fi
@@ -537,16 +339,8 @@ cleanup() {
 trap 'cleanup force' INT TERM
 
 # Construct the command to run the devcontainer
-# マウント設定をモードに応じて構築
 MOUNT_ARGS=""
-
-# モードAの場合はワークスペースマウントは不要（devcontainerが自動処理）
-if [ "$USE_USER_DEVCONTAINER" = false ]; then
-    # モードBの場合はワークスペースをマウント
-    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$WORKSPACE_PATH,target=/workspaces/$(basename $WORKSPACE_PATH)"
-fi
-
-# 共通のマウント設定
+MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$WORKSPACE_PATH,target=/workspaces/$(basename $WORKSPACE_PATH)"
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$resolved_config_path,target=/home/vscode/.config/nvim"
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/dotfiles/.tmux.conf,target=/home/vscode/.tmux.conf"
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/scripts/start-tmux.sh,target=/usr/local/bin/start-tmux"
@@ -562,36 +356,7 @@ if [ -f "$CLAUDE_AUTH_JSON" ]; then
     MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$CLAUDE_AUTH_JSON,target=/home/vscode/.claude.json"
 fi
 
-# Add GitHub Copilot config mounts if they exist
-COPILOT_DIR="$HOME/.copilot"
-if [ -d "$COPILOT_DIR/agents" ]; then
-    echo "Mounting Copilot agents directory: $COPILOT_DIR/agents"
-    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$COPILOT_DIR/agents,target=/home/vscode/.copilot/agents"
-fi
-
-if [ -f "$COPILOT_DIR/mcp-config.json" ]; then
-    echo "Mounting Copilot MCP config: $COPILOT_DIR/mcp-config.json"
-    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$COPILOT_DIR/mcp-config.json,target=/home/vscode/.copilot/mcp-config.json"
-fi
-
-if [ -f "$COPILOT_DIR/config.json" ]; then
-    echo "Mounting Copilot config: $COPILOT_DIR/config.json"
-    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$COPILOT_DIR/config.json,target=/home/vscode/.copilot/config.json"
-fi
-
-if [ -d "$COPILOT_DIR/skills" ]; then
-    echo "Mounting Copilot skills directory: $COPILOT_DIR/skills"
-    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$COPILOT_DIR/skills,target=/home/vscode/.copilot/skills"
-fi
-
-# モードに応じてadditional-featuresを設定
-if [ "$USE_USER_DEVCONTAINER" = true ]; then
-    # モードA: publicFeaturesはdevcontainer.jsonに注入済みなので不要
-    command="devcontainer up $rebuild_flag --workspace-folder $DEVCONTAINER_WORKSPACE $MOUNT_ARGS"
-else
-    # モードB: publicFeaturesをadditional-featuresとして追加
-    command="devcontainer up $rebuild_flag --workspace-folder $DEVCONTAINER_WORKSPACE $MOUNT_ARGS --additional-features='$ALL_PUBLIC_FEATURES'"
-fi
+command="devcontainer up $rebuild_flag --workspace-folder $TEMP_WORKSPACE $MOUNT_ARGS --additional-features='$ALL_PUBLIC_FEATURES'"
 
 eval "$command"
 EXIT_CODE=$?
@@ -599,6 +364,6 @@ EXIT_CODE=$?
 # Don't execute if devcontainer up failed
 if [ $EXIT_CODE -eq 0 ]; then
     # Start tmux session with 3 windows (nvim, claude, bash)
-    eval "devcontainer exec --workspace-folder $DEVCONTAINER_WORKSPACE start-tmux"
-    # eval "devcontainer exec --workspace-folder $DEVCONTAINER_WORKSPACE bash"
+    eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE start-tmux"
+    # eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE bash"
 fi

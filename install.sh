@@ -21,26 +21,28 @@ ln -sf "$SCRIPT_DIR/dotfiles/.tmux.conf" "$HOME/.tmux.conf"
 
 # Add bin/ directory to PATH if not already added
 BIN_PATH="$SCRIPT_DIR/bin"
-SHELL_RC=""
 
-# Detect shell and set appropriate RC file
-if [ -n "$ZSH_VERSION" ]; then
-	SHELL_RC="$HOME/.zshrc"
-elif [ -n "$BASH_VERSION" ]; then
-	SHELL_RC="$HOME/.bashrc"
-fi
-
-if [ -n "$SHELL_RC" ]; then
-	# Check if PATH already contains bin directory
-	if ! grep -q "export PATH=\"\$PATH:$BIN_PATH\"" "$SHELL_RC" 2>/dev/null; then
-		echo ""
-		echo "# DevContainer bin directory" >> "$SHELL_RC"
-		echo "export PATH=\"\$PATH:$BIN_PATH\"" >> "$SHELL_RC"
-		echo "Added $BIN_PATH to PATH in $SHELL_RC"
-		echo "Please run: source $SHELL_RC"
-	else
-		echo "PATH already includes $BIN_PATH"
+# Add to both bash and zsh config files if they exist
+for SHELL_RC in "$HOME/.bashrc" "$HOME/.zshrc"; do
+	if [ -f "$SHELL_RC" ]; then
+		# Check if PATH already contains bin directory
+		if ! grep -q "export PATH=\"\$PATH:$BIN_PATH\"" "$SHELL_RC" 2>/dev/null; then
+			echo ""
+			echo "# DevContainer bin directory" >> "$SHELL_RC"
+			echo "export PATH=\"\$PATH:$BIN_PATH\"" >> "$SHELL_RC"
+			echo "Added $BIN_PATH to PATH in $SHELL_RC"
+		else
+			echo "PATH already includes $BIN_PATH in $SHELL_RC"
+		fi
 	fi
+done
+
+# Detect user's current shell and provide appropriate source command
+USER_SHELL=$(basename "$SHELL")
+if [ "$USER_SHELL" = "zsh" ] && [ -f "$HOME/.zshrc" ]; then
+	echo "Please run: source ~/.zshrc"
+elif [ "$USER_SHELL" = "bash" ] && [ -f "$HOME/.bashrc" ]; then
+	echo "Please run: source ~/.bashrc"
 fi
 
 # Make vimcontainer executable
