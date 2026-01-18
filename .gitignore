@@ -1,6 +1,7 @@
 # agents-docs - エージェントが出力するドキュメント
 agents-docs/*
 !agents-docs/.gitkeep
+!agents-docs/intro.md
 
 # agents-docs-preview
 agents-docs-preview/node_modules/

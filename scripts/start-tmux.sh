@@ -16,7 +16,7 @@ fi
 # Remove trailing slash
 WORKSPACE_DIR=${WORKSPACE_DIR%/}
 
-SESSION_NAME="dev"
+SESSION_NAME="${PROJECT_NAME:-dev}"
 
 # Check if session already exists
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then

@@ -145,6 +145,11 @@ WORKSPACE_HASH=$(echo -n "$WORKSPACE_PATH" | md5sum | cut -d' ' -f1 | cut -c1-8)
 WORKSPACE_NAME=$(basename "$WORKSPACE_PATH" | tr -cd '[:alnum:]._-')
 TEMP_WORKSPACE="/tmp/vimcontainer-${WORKSPACE_HASH}"
 
+# Rename tmux window to workspace name if running inside tmux
+if [ -n "$TMUX" ]; then
+    tmux rename-window "$WORKSPACE_NAME"
+fi
+
 # Clean up old temp workspace if it exists and we're rebuilding
 if [ -n "$rebuild_flag" ] && [ -d "$TEMP_WORKSPACE" ]; then
     rm -rf "$TEMP_WORKSPACE"
@@ -389,7 +394,7 @@ if [ -f "$CLAUDE_AUTH_JSON" ]; then
     MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$CLAUDE_AUTH_JSON,target=/home/vscode/.claude.json"
 fi
 
-command="devcontainer up $rebuild_flag --workspace-folder $TEMP_WORKSPACE $MOUNT_ARGS --remote-env DOCS_ROOT=/docs --additional-features='$ALL_PUBLIC_FEATURES'"
+command="devcontainer up $rebuild_flag --workspace-folder $TEMP_WORKSPACE $MOUNT_ARGS --remote-env DOCS_ROOT=/docs --remote-env PROJECT_NAME=$WORKSPACE_NAME --additional-features='$ALL_PUBLIC_FEATURES'"
 
 eval "$command"
 EXIT_CODE=$?
@@ -397,6 +402,6 @@ EXIT_CODE=$?
 # Don't execute if devcontainer up failed
 if [ $EXIT_CODE -eq 0 ]; then
     # Start tmux session with 3 windows (nvim, claude, bash)
-    eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE start-tmux"
+    eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE --remote-env PROJECT_NAME=$WORKSPACE_NAME start-tmux"
     # eval "devcontainer exec --workspace-folder $TEMP_WORKSPACE bash"
 fi

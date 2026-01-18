@@ -8,8 +8,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      # agents-docsの内容を参照（読み取り専用）
-      - ../agents-docs:/app/docs-source:ro
+      # agents-docsをDocusaurusが期待するパスにマウント（/app/../agents-docs = /agents-docs）
+      - ../agents-docs:/agents-docs:ro
       # ソースコードをマウント（ホットリロード対応）
       - ./src:/app/src
       - ./docs:/app/docs

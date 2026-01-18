@@ -28,6 +28,7 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
+          path: '../agents-docs',
           sidebarPath: './sidebars.js',
           routeBasePath: 'docs',
         },
