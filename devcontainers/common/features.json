@@ -11,6 +11,10 @@
     {
       "name": "claude-code",
       "options": {}
+    },
+    {
+      "name": "copilot-cli",
+      "options": {}
     }
   ],
   "publicFeatures": {
@@ -20,6 +24,7 @@
     "ghcr.io/jungaretti/features/ripgrep:1": {},
     "ghcr.io/devcontainers-community/features/deno": {},
     "ghcr.io/devcontainers/features/node:1": {},
-    "ghcr.io/devcontainers-extra/features/tmux-apt-get:1": {}
+    "ghcr.io/devcontainers-extra/features/tmux-apt-get:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   }
 }

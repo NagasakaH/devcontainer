@@ -58,10 +58,105 @@ vimcontainer
 
 **オプション**:
 - `-r, --rebuild`: コンテナを再ビルド
+- `-R, --restore`: バックアップからdevcontainer.jsonを復元
+- `-n, --no-user-devcontainer`: ユーザーの.devcontainerを無視してテンプレートを使用
 
 **利用可能なイメージ**:
 - `dotnet`: .NET開発環境
 - `react`: React開発環境（準備中）
+
+## ユーザー.devcontainer自動編集機能
+
+vimcontainerは、ワークスペースに既存の`.devcontainer`ディレクトリが存在する場合、自動的にその設定を利用してvimcontainerのfeaturesを追加します。
+
+### 動作モード
+
+| モード | 条件 | 動作 |
+|--------|------|------|
+| **Mode A** | ワークスペースに`.devcontainer`あり | ユーザーのdevcontainer.jsonにfeaturesを注入 |
+| **Mode B** | ワークスペースに`.devcontainer`なし | テンプレートベースで新規作成 |
+
+### Mode A: ユーザー設定編集モード
+
+ワークスペースに`.devcontainer/devcontainer.json`が存在する場合：
+
+1. **バックアップ作成**: 元のdevcontainer.jsonを`.vimcontainer-backup`として保存
+2. **localFeaturesコピー**: tree-sitter、luarocks等を`.devcontainer/`にコピー
+3. **Features注入**: vimcontainerのfeaturesをdevcontainer.jsonに追加
+4. **既存設定保持**: ユーザーの既存featuresやpostCreateCommandは保持
+
+```bash
+# 例: ユーザーの.devcontainerがあるプロジェクト
+vimcontainer dotnet ~/my-project
+
+# 出力:
+# Detected user .devcontainer at: /home/user/my-project/.devcontainer
+# Using user's .devcontainer configuration (Mode A)
+# Created backup: .../devcontainer.json.vimcontainer-backup
+```
+
+### バックアップからの復元
+
+vimcontainerによる変更を元に戻すには`-R`オプションを使用：
+
+```bash
+# devcontainer.jsonを元の状態に復元
+vimcontainer -R dotnet ~/my-project
+
+# 出力:
+# Restoring devcontainer.json from backup...
+# Restored from backup: .../devcontainer.json
+# Removed injected feature: tree-sitter
+# Restore completed.
+```
+
+復元時に削除されるもの：
+- 注入されたfeaturesの設定（devcontainer.jsonから）
+- コピーされたlocalFeaturesディレクトリ（tree-sitter, luarocks等）
+
+### テンプレートベースモードの強制
+
+ユーザーの`.devcontainer`を無視してテンプレートを使用するには`-n`オプション：
+
+```bash
+# ユーザーの.devcontainerを無視してテンプレートを使用
+vimcontainer -n dotnet ~/my-project
+
+# 出力:
+# Using template-based configuration (Mode B)
+```
+
+### 編集例
+
+**編集前（ユーザーの既存設定）:**
+```json
+{
+  "name": "My Project",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+  "postCreateCommand": "pip install -r requirements.txt"
+}
+```
+
+**編集後（vimcontainer features注入後）:**
+```json
+{
+  "name": "My Project",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "./tree-sitter": {},
+    "./luarocks": {},
+    "./claude-code": {},
+    "ghcr.io/duduribeiro/devcontainer-features/neovim:1": {"version": "stable"},
+    "ghcr.io/jungaretti/features/ripgrep:1": {},
+    "ghcr.io/devcontainers-extra/features/tmux-apt-get:1": {}
+  },
+  "postCreateCommand": "pip install -r requirements.txt && sudo chsh -s /bin/zsh vscode"
+}
+```
 
 ## カスタムDevContainer Features
 

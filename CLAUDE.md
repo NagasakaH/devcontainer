@@ -32,6 +32,8 @@ vimcontainer -r ~/git/devcontainer/devcontainers/dotnet ~/path/to/your/project
 
 **Options:**
 - `-r, --rebuild`: Force rebuild of the container
+- `-R, --restore`: Restore original devcontainer.json from backup (Mode A only)
+- `-n, --no-user-devcontainer`: Ignore user's .devcontainer, use template
 
 ## Architecture
 
@@ -45,6 +47,31 @@ The core script creates and manages DevContainer environments with these key beh
 4. **Auto-adds postCreateCommand**: If not present in original devcontainer.json, adds `dotnet restore` command for .NET projects
 5. **Shared LazyVim Config**: Mounts `submodules/LazyVim` to `/home/vscode/.config/nvim` (shared across all containers)
 6. **Additional Features**: Auto-injects public features (neovim, ripgrep, deno, node, tmux) via `--additional-features` flag
+7. **User .devcontainer Detection**: Automatically detects and edits user's existing .devcontainer configuration
+
+### Mode A: User .devcontainer Edit Mode
+
+When the workspace contains an existing `.devcontainer/devcontainer.json`:
+
+1. **Backup Creation**: Creates `.vimcontainer-backup` of original devcontainer.json
+2. **Feature Injection**: Injects vimcontainer features (local + public) into existing config
+3. **Existing Config Preservation**: Preserves user's existing features and postCreateCommand
+4. **Direct Workspace Usage**: Uses workspace path directly without temp directory
+
+Key functions:
+- `detect_user_devcontainer()`: Checks for valid .devcontainer in workspace
+- `backup_devcontainer_json()`: Creates backup before editing
+- `restore_devcontainer_json()`: Restores from backup and cleans up injected features
+- `copy_local_features_to_user_devcontainer()`: Copies feature directories
+- `inject_vimcontainer_features()`: Merges features into devcontainer.json
+
+### Mode B: Template-Based Mode
+
+When no .devcontainer exists in workspace (original behavior):
+
+1. Creates temporary workspace at `/tmp/vimcontainer-{HASH}`
+2. Copies template from `devcontainers/{image}/.devcontainer`
+3. Injects features via `--additional-features` flag
 
 ### Mount Structure
 
