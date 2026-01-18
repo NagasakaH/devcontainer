@@ -1,0 +1,13 @@
+{
+  "id": "vimcontainer-setup",
+  "version": "1.0.0",
+  "name": "Neovim Data Directory Setup",
+  "description": "Creates and configures /home/vscode/.local/share/nvim directory for Neovim data persistence",
+  "options": {
+    "username": {
+      "type": "string",
+      "default": "vscode",
+      "description": "Username for directory ownership"
+    }
+  }
+}

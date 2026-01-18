@@ -385,7 +385,7 @@ MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$AGENTS_DOCS_DIR,target=/docs"
 
 # Add named volume for nvim data persistence
 # Uses workspace-specific volume to keep nvim state independent per workspace
-MOUNT_ARGS="$MOUNT_ARGS --mount type=volume,source=nvim-data-${WORKSPACE_HASH},target=/home/vscode/.local/share/nvim"
+MOUNT_ARGS="$MOUNT_ARGS --mount type=volume,source=vimcontainer-setup-${WORKSPACE_HASH},target=/home/vscode/.local/share/nvim"
 
 # Add Claude Code auth mounts if they exist
 if [ -d "$CLAUDE_AUTH_DIR" ]; then
