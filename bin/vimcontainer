@@ -387,7 +387,7 @@ if [ -f "$CLAUDE_AUTH_JSON" ]; then
     MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$CLAUDE_AUTH_JSON,target=/home/vscode/.claude.json"
 fi
 
-command="devcontainer up $rebuild_flag --workspace-folder $TEMP_WORKSPACE $MOUNT_ARGS --additional-features='$ALL_PUBLIC_FEATURES'"
+command="devcontainer up $rebuild_flag --workspace-folder $TEMP_WORKSPACE $MOUNT_ARGS --remote-env DOCS_ROOT=/docs --additional-features='$ALL_PUBLIC_FEATURES'"
 
 eval "$command"
 EXIT_CODE=$?
