@@ -141,6 +141,8 @@ fi
 # Create temporary workspace with consistent name based on workspace path
 # This ensures the same workspace always gets the same temp directory and container
 WORKSPACE_HASH=$(echo -n "$WORKSPACE_PATH" | md5sum | cut -d' ' -f1 | cut -c1-8)
+# Extract workspace name from path (basename) and sanitize for safe directory naming
+WORKSPACE_NAME=$(basename "$WORKSPACE_PATH" | tr -cd '[:alnum:]._-')
 TEMP_WORKSPACE="/tmp/vimcontainer-${WORKSPACE_HASH}"
 
 # Clean up old temp workspace if it exists and we're rebuilding
@@ -371,7 +373,7 @@ if [ -d "$COPILOT_DIR/skills" ]; then
 fi
 
 # Add agents-docs mount for document output
-AGENTS_DOCS_DIR="$PROJECT_ROOT/agents-docs/$WORKSPACE_HASH"
+AGENTS_DOCS_DIR="$PROJECT_ROOT/agents-docs/${WORKSPACE_NAME}-${WORKSPACE_HASH}"
 mkdir -p "$AGENTS_DOCS_DIR"
 echo "Mounting agents-docs directory: $AGENTS_DOCS_DIR"
 MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$AGENTS_DOCS_DIR,target=/docs"
