@@ -1,25 +1,45 @@
 # DevContainer Setup
 
-カスタムDevContainer featuresとvimcontainerスクリプトによる統合開発環境セットアップ
+カスタムDevContainer featuresとvimcontainerスクリプトによる統合開発環境セットアップ。
+GitHub Copilot CLI向けのカスタムエージェント・スキル環境も提供します。
 
 ## プロジェクト構成
 
 ```
 devcontainer/
+├── agents/                       # Copilot CLI カスタムエージェント
+│   ├── call-opus-agent.agent.md # Opusサブエージェント呼び出し
+│   ├── opus-parent-agent.md     # 親エージェント定義
+│   └── opus-child-agent.md      # 子エージェント定義
+├── agents-docs/                  # エージェント出力ドキュメント保存先
 ├── bin/
-│   └── vimcontainer              # DevContainer起動スクリプト
+│   ├── vimcontainer             # DevContainer起動スクリプト
+│   └── cplt                     # Copilot CLI wrapper
 ├── devcontainers/                # DevContainer設定テンプレート
-│   └── dotnet/                   # .NET開発環境
-│       └── .devcontainer/
-│           ├── Dockerfile
-│           └── devcontainer.json
+│   ├── common/                   # 共通Features設定
+│   ├── dotnet/                   # .NET開発環境
+│   └── react/                    # React開発環境（準備中）
+├── docusaurus/                   # agents-docsプレビュー用Docusaurus設定
+├── dotfiles/
+│   ├── .tmux.conf               # tmux設定
+│   └── .config/lazygit/         # lazygit設定
 ├── features/                     # カスタムDevContainer features
+│   ├── claude-code/             # Claude Code CLI
+│   ├── copilot-cli/             # GitHub Copilot CLI
 │   ├── easydotnet/              # .NET開発ツール統合
-│   └── tree-sitter/             # tree-sitter CLI
-├── submodules/
-│   └── LazyVim/                 # Neovim設定 (submodule)
-└── dotfiles/
-    └── .tmux.conf               # tmux設定
+│   ├── lazygit/                 # lazygit CLIツール
+│   ├── luarocks/                # Luaパッケージマネージャー
+│   ├── tree-sitter/             # tree-sitter CLI
+│   ├── vimcontainer-setup/      # Neovimデータディレクトリ設定
+│   └── yazi/                    # ターミナルファイルマネージャ
+├── scripts/                      # ユーティリティスクリプト
+│   └── start-tmux.sh            # tmuxセッション初期化
+├── skills/                       # Copilot CLI カスタムスキル
+│   ├── get-docs-root/           # DOCS_ROOT環境変数取得
+│   ├── mcp-builder/             # MCPサーバー構築ガイド
+│   └── skill-creator/           # スキル作成ガイド
+└── submodules/
+    └── LazyVim/                 # Neovim設定 (submodule)
 ```
 
 ## クイックスタート
@@ -160,6 +180,21 @@ vimcontainer -n dotnet ~/my-project
 
 ## カスタムDevContainer Features
 
+### claude-code
+
+Claude Code CLIをインストールし、AI支援開発を可能にします。
+
+- **バージョン**: latest (デフォルト)
+- **依存関係**: Node.js (ghcr.io/devcontainers/features/node)
+- **用途**: AI支援によるコード生成、レビュー、リファクタリング
+
+### copilot-cli
+
+GitHub Copilot CLIをインストールします。
+
+- **バージョン**: latest (デフォルト)
+- **用途**: ターミナルでのAI支援、コマンド生成、コード補完
+
 ### tree-sitter
 
 tree-sitter CLIをプリビルドバイナリからインストールします。
@@ -186,12 +221,35 @@ tree-sitter CLIをプリビルドバイナリからインストールします�
 - vscodeユーザーにツールをインストール
 - PATHを自動設定 (`/etc/profile.d/dotnet-tools.sh`)
 
+### lazygit
+
+lazygit（シンプルなGit用ターミナルUI）をインストールします。
+
+- **バージョン**: 0.51.1 (デフォルト)
+- **用途**: ターミナルでの直感的なGit操作
+- **インストール先**: `/usr/local/bin/lazygit`
+
+### yazi
+
+Yazi（Rust製高速ターミナルファイルマネージャ）をインストールします。
+
+- **バージョン**: 0.4.2 (デフォルト)
+- **用途**: ターミナルでのファイル操作・プレビュー
+- **インストール先**: `/usr/local/bin/yazi`
+
 ### luarocks
 
 Luaパッケージマネージャーをインストールします。
 
 - **用途**: Neovimプラグインで必要なLuaライブラリの管理
 - **インストール先**: システムパッケージ経由
+
+### vimcontainer-setup
+
+Neovimデータディレクトリを設定します。
+
+- **用途**: `/home/vscode/.local/share/nvim`ディレクトリの作成と権限設定
+- **自動実行**: コンテナ起動時に所有権を自動設定
 
 ## Features設定システム
 
@@ -251,8 +309,19 @@ TEMP_WORKSPACE="/tmp/vimcontainer-${WORKSPACE_HASH}"
 | `{WORKSPACE_PATH}` | `/workspaces/{basename}` | プロジェクトファイル |
 | `submodules/LazyVim` | `/home/vscode/.config/nvim` | Neovim設定 (共有) |
 | `dotfiles/.tmux.conf` | `/home/vscode/.tmux.conf` | tmux設定 |
+| `dotfiles/.config/lazygit/` | `/home/vscode/.config/lazygit/` | lazygit設定 |
+| `agents/` | `/home/vscode/.copilot/agents/` | Copilotカスタムエージェント |
+| `skills/` | `/home/vscode/.copilot/skills/` | Copilotカスタムスキル |
+| `bin/cplt` | `/usr/local/bin/cplt` | Copilot CLIラッパー |
+| `agents-docs/{workspace}/` | `/docs` | エージェント出力ドキュメント |
+| `~/.claude` | `/home/vscode/.claude` | Claude Code認証情報 |
+| `~/.claude.json` | `/home/vscode/.claude.json` | Claude Code設定 |
+| `~/.copilot/mcp-config.json` | `/home/vscode/.copilot/mcp-config.json` | Copilot MCP設定 |
+| `~/.copilot/config.json` | `/home/vscode/.copilot/config.json` | Copilot設定 |
 
-**注**: nvimのdata/stateディレクトリ（`.local/share/nvim`, `.local/state/nvim`）はコンテナ内に保持され、コンテナごとに独立します。
+**注**: 
+- nvimのdata/stateディレクトリ（`.local/share/nvim`）はDockerボリュームで永続化され、ワークスペースごとに独立
+- DOCS_ROOT環境変数が自動的に`/docs`に設定される
 
 ### Features設定の読み込みプロセス
 
@@ -274,6 +343,57 @@ vimcontainerは起動時に以下の手順でfeaturesを読み込み、マージ
    - postCreateCommandが未設定の場合は追加
 
 この仕組みにより、共通設定を保ちながらイメージごとのカスタマイズが可能になります。
+
+## Copilot CLI統合
+
+vimcontainerはGitHub Copilot CLIのカスタムエージェント・スキル環境を自動的に設定します。
+
+### cpltコマンド
+
+`cplt`はCopilot CLIのラッパースクリプトです。
+
+```bash
+# Copilot CLIをcall-opus-agentで起動
+cplt
+
+# セッションを再開
+cplt -r
+```
+
+**特徴**:
+- tmux window名を自動で「copilot」に変更
+- `call-opus-agent`エージェントをデフォルトで使用
+- `-r`オプションで前回のセッションを再開
+- `--allow-all`オプションが自動適用
+
+### カスタムエージェント
+
+`agents/`ディレクトリには、タスク管理のためのエージェント定義が含まれます。
+
+| エージェント | 説明 |
+|-------------|------|
+| `call-opus-agent` | 環境情報収集とOpus親エージェント呼び出し |
+| `opus-parent-agent` | タスク分割と並列実行管理 |
+| `opus-child-agent` | 実際の作業実行とドキュメント出力 |
+
+### カスタムスキル
+
+`skills/`ディレクトリには、再利用可能なスキルが含まれます。
+
+| スキル | 説明 |
+|--------|------|
+| `get-docs-root` | DOCS_ROOT環境変数の値を取得 |
+| `mcp-builder` | MCPサーバー構築ガイド（TypeScript/Python対応） |
+| `skill-creator` | 新しいスキル作成のガイドライン |
+
+### 環境変数
+
+vimcontainerが自動設定する環境変数:
+
+| 変数名 | 値 | 説明 |
+|--------|-----|------|
+| `DOCS_ROOT` | `/docs` | エージェント出力ドキュメントのルート |
+| `PROJECT_NAME` | ワークスペース名 | プロジェクト識別子 |
 
 ## .NET開発環境
 
@@ -452,33 +572,40 @@ vimcontainerでエージェントが出力するドキュメントを管理す�
 
 ### 仕組み
 - `agents-docs/` ディレクトリ配下に各環境固有のディレクトリが作成されます
+- ディレクトリ名は `{workspace-name}-{hash}` 形式（例: `myproject-a1b2c3d4`）
 - コンテナ内の `/docs` にマウントされ、エージェントはそこにドキュメントを出力します
-- 環境固有のディレクトリ名はワークスペースパスのハッシュ値から生成されます
+- `DOCS_ROOT`環境変数が自動で`/docs`に設定されます
 
 ### ディレクトリ構造
 
 ```
 agents-docs/
 ├── .gitkeep
-└── {workspace-hash}/     # 各環境固有（例: a1b2c3d4/）
-    └── {task-name}/      # タスクごとのディレクトリ
-        ├── parent-*.md   # 親エージェントのドキュメント
-        └── child-*.md    # 子エージェントのドキュメント
+└── {workspace-name}-{hash}/  # 各環境固有（例: myproject-a1b2c3d4/）
+    └── {task-folder}/        # タスクごとのディレクトリ
+        ├── タスク実行履歴.md  # タスク実行履歴
+        ├── 001/               # 直列タスク1
+        │   └── child-*.md
+        ├── 002-1/             # 並列タスク（親番号002、サブ番号1）
+        │   └── child-*.md
+        └── 002-2/             # 並列タスク（親番号002、サブ番号2）
+            └── child-*.md
 ```
 
 ### ドキュメントの出力ルール
 - マークダウン形式で出力
 - 図には可能な限りmermaidを使用
-- parent-agentがタスク毎に親ディレクトリを作成
-- child-agentが連番でサブディレクトリを作成
+- Docusaurus互換のMDXルールに従う（山括弧はインラインコードで囲む）
+- parent-agentがタスクフォルダと連番ディレクトリを事前に作成
+- child-agentが`child-<タスク名>.md`を出力
 
 ### プレビュー方法
 Docusaurusを使用してagents-docsのドキュメントをブラウザでプレビューできます：
 
 ```bash
-cd agents-docs-preview
+cd docusaurus
 npm install
-npm run dev
+npm run start
 ```
 
 ブラウザで http://localhost:3000 にアクセスしてください。
@@ -487,9 +614,11 @@ npm run dev
 
 | ファイル | 説明 |
 |---------|------|
-| `agents/opus-parent-agent.md` | 親エージェントのドキュメント出力ルール |
-| `agents/opus-child-agent.md` | 子エージェントのドキュメント出力ルール |
+| `agents/opus-parent-agent.md` | 親エージェントのタスク管理・ドキュメント出力ルール |
+| `agents/opus-child-agent.md` | 子エージェントの作業実行・ドキュメント出力ルール |
+| `agents/call-opus-agent.agent.md` | 環境情報収集・Opusエージェント呼び出し |
 | `bin/vimcontainer` | agents-docsのマウント設定 |
+| `skills/get-docs-root/` | DOCS_ROOT環境変数取得スキル |
 
 ## よくある質問
 
@@ -497,7 +626,7 @@ npm run dev
 A: vimcontainerは同じワークスペースパスに対して同じコンテナを再利用します。`-r`オプションを付けずに実行してください。
 
 ### Q: nvim-treesitterのパーサーがインストールできない
-A: パーサーはコンテナ内の`/home/vscode/.local/share/nvim/`にインストールされます。ホストとは共有されないため、コンテナごとにインストールが必要です。
+A: パーサーはDockerボリューム内（`vimcontainer-setup-{hash}`）に保存されます。ワークスペースごとに独立しており、初回は自動インストールされます。
 
 ### Q: C# LSPが動作しない
 A: `dotnet restore`が実行されているか確認してください。初回起動時は`postCreateCommand`で自動実行されますが、手動で実行する場合は:
@@ -511,6 +640,22 @@ A: netcoredbgがインストールされているか確認:
 which netcoredbg
 # /usr/local/bin/netcoredbg
 ```
+
+### Q: Copilot CLIが動作しない
+A: 以下を確認してください:
+1. `copilot-cli` featureがインストールされているか
+2. GitHub認証が完了しているか（`copilot auth login`を実行）
+3. `cplt`コマンドを使用しているか
+
+### Q: DOCS_ROOTが取得できない
+A: `get-docs-root`スキルを使用してください:
+```bash
+python3 ~/.copilot/skills/get-docs-root/scripts/get_docs_root.py
+```
+空行が返る場合は環境変数が設定されていません。
+
+### Q: lazygitの設定が反映されない
+A: `dotfiles/.config/lazygit/config.yml`がマウントされています。設定を変更した場合はコンテナを再起動してください。
 
 ## ライセンス
 

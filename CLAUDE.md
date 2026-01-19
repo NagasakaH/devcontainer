@@ -80,8 +80,18 @@ When no .devcontainer exists in workspace (original behavior):
 | `{WORKSPACE_PATH}` | `/workspaces/{basename}` | Project files |
 | `submodules/LazyVim` | `/home/vscode/.config/nvim` | Shared Neovim config |
 | `dotfiles/.tmux.conf` | `/home/vscode/.tmux.conf` | tmux config |
+| `dotfiles/.config/lazygit/config.yml` | `/home/vscode/.config/lazygit/config.yml` | lazygit config |
+| `agents/` | `/home/vscode/.copilot/agents` | Copilot agents |
+| `skills/` | `/home/vscode/.copilot/skills` | Copilot skills |
+| `bin/cplt` | `/usr/local/bin/cplt` | Copilot CLI wrapper |
+| `agents-docs/{name}-{hash}` | `/docs` | Document output directory |
+| `~/.copilot/mcp-config.json` | `/home/vscode/.copilot/mcp-config.json` | MCP config (if exists) |
+| `~/.copilot/config.json` | `/home/vscode/.copilot/config.json` | Copilot config (if exists) |
+| `~/.claude` | `/home/vscode/.claude` | Claude Code auth (if exists) |
+| `~/.claude.json` | `/home/vscode/.claude.json` | Claude Code config (if exists) |
+| `vimcontainer-setup-{hash}` (volume) | `/home/vscode/.local/share/nvim` | Neovim data (persistent volume) |
 
-**Note**: nvim data/state directories (`.local/share/nvim`, `.local/state/nvim`) are container-specific and not shared.
+**Note**: nvim data is now persisted via named volumes per workspace, enabling state retention across container rebuilds.
 
 ### Custom DevContainer Features
 
@@ -102,12 +112,84 @@ Located in `features/` directory:
 **luarocks** (`features/luarocks/`)
 - Installs Lua package manager
 
+**claude-code** (`features/claude-code/`)
+- Installs Claude Code CLI for AI-powered development
+- Requires Node.js (installsAfter node feature)
+- Version: configurable (default: latest)
+
+**copilot-cli** (`features/copilot-cli/`)
+- Installs GitHub Copilot CLI for AI-powered terminal assistance
+- Version: configurable (default: latest)
+
+**lazygit** (`features/lazygit/`)
+- Installs lazygit - a simple terminal UI for git commands
+- Default version: 0.51.1 (configurable)
+
+**yazi** (`features/yazi/`)
+- Installs Yazi, a blazing fast terminal file manager written in Rust
+- Default version: 0.4.2 (configurable)
+
+**vimcontainer-setup** (`features/vimcontainer-setup/`)
+- Creates and configures `/home/vscode/.local/share/nvim` directory for Neovim data persistence
+- Sets proper ownership for vscode user
+
 ### LazyVim Submodule
 
 - **Location**: `submodules/LazyVim`
 - **Source**: `git@github.com:NagasakaH/LazyVim.git`
 - **Auto-initialization**: vimcontainer auto-runs `git submodule update --init` if not initialized
 - **Plugin Customization**: Add user-specific plugins to `submodules/LazyVim/lua/plugins/` (not `~/.config/nvim/`)
+
+### Copilot CLI Integration
+
+**Commands** (`bin/`)
+- `cplt` - Copilot CLI wrapper that:
+  - Renames tmux window to "copilot" during execution
+  - Supports `-r` flag for `--resume`
+  - Automatically uses `call-opus-agent` agent
+  - Usage: `cplt [-r] [args]`
+
+**Agents** (`agents/`)
+
+Custom agents for orchestrating AI-powered workflows:
+
+- `call-opus-agent.agent.md` - Entry point agent that:
+  - Collects environment information (DOCS_ROOT, working directory)
+  - Delegates to opus-parent-agent with context
+
+- `opus-parent-agent.md` - Task orchestration agent that:
+  - Splits tasks and creates work plans
+  - Manages parallel/serial execution of sub-agents
+  - Records task execution history
+  - Uses Claude Opus 4.5 model
+
+- `opus-child-agent.md` - Task execution agent that:
+  - Executes delegated tasks
+  - Outputs work reports to designated directories
+  - Uses Claude Opus 4.5 model
+
+**Skills** (`skills/`)
+
+Modular packages that extend AI capabilities:
+
+- `get-docs-root/` - Retrieves DOCS_ROOT environment variable
+  - Script: `scripts/get_docs_root.py`
+  - Returns the documentation root directory path
+
+- `mcp-builder/` - Guide for creating MCP (Model Context Protocol) servers
+  - Covers TypeScript and Python implementations
+  - Includes best practices and evaluation guides
+  - References in `reference/` directory
+
+- `skill-creator/` - Guide for creating effective skills
+  - Documents skill anatomy (SKILL.md, scripts, references, assets)
+  - Includes init and package scripts
+  - Progressive disclosure design patterns
+
+### Environment Variables (set in container)
+
+- `DOCS_ROOT=/docs` - Documentation output directory
+- `PROJECT_NAME={workspace_name}` - Current workspace name
 
 ### DevContainer Templates
 
@@ -180,3 +262,6 @@ Auto-detects .NET projects and runs restore.
 - Container cleanup only happens on interrupt (Ctrl+C) or with `-r` flag, not on normal exit
 - The same workspace path will always connect to the same container (unless rebuilt)
 - Feature changes require container rebuild (`-r`) to take effect
+- Neovim data is persisted in named Docker volumes (one per workspace hash)
+- DOCS_ROOT environment variable is automatically set to `/docs` in containers
+- Agents and skills are mounted from host and available in `/home/vscode/.copilot/`
