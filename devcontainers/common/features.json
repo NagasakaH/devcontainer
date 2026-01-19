@@ -1,6 +1,10 @@
 {
   "localFeatures": [
     {
+      "name": "vimcontainer-setup",
+      "options": {}
+    },
+    {
       "name": "tree-sitter",
       "options": {}
     },
