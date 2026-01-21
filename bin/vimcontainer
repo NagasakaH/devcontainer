@@ -409,6 +409,12 @@ if [ -f "$HOME/.gitconfig" ]; then
     MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$HOME/.gitconfig,target=/home/vscode/.gitconfig"
 fi
 
+# Add ssh directory mount if it exists
+if [ -d "$HOME/.ssh" ]; then
+    echo "Mounting ssh directory: $HOME/.ssh"
+    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$HOME/.ssh,target=/home/vscode/.ssh"
+fi
+
 command="devcontainer up $rebuild_flag --workspace-folder $TEMP_WORKSPACE $MOUNT_ARGS --remote-env DOCS_ROOT=/docs --remote-env PROJECT_NAME=$WORKSPACE_NAME --additional-features='$ALL_PUBLIC_FEATURES'"
 
 eval "$command"
