@@ -346,35 +346,138 @@ cleanup() {
 trap 'cleanup force' INT TERM
 
 # Construct the command to run the devcontainer
+
+# ============================================================
+# Workspace mounts priority handling
+# ============================================================
+# Read workspace's devcontainer.json mounts to avoid duplicates
+# Workspace mounts take precedence over vimcontainer defaults
+
+WORKSPACE_DEVCONTAINER_JSON="$WORKSPACE_PATH/.devcontainer/devcontainer.json"
+WORKSPACE_MOUNT_TARGETS=()
+
+# Function to extract target paths from mounts configuration
+extract_mount_targets() {
+    local json_file="$1"
+    local targets=()
+    
+    if [ ! -f "$json_file" ]; then
+        return
+    fi
+    
+    # Check if mounts array exists
+    local has_mounts
+    has_mounts=$(jq -e '.mounts' "$json_file" 2>/dev/null)
+    if [ $? -ne 0 ]; then
+        return
+    fi
+    
+    # Extract targets from mounts array
+    # Supports both string format and object format:
+    # - String format: "source=/path,target=/target,type=bind"
+    # - Object format: {"source": "/path", "target": "/target", "type": "bind"}
+    while IFS= read -r target; do
+        if [ -n "$target" ] && [ "$target" != "null" ]; then
+            targets+=("$target")
+        fi
+    done < <(jq -r '.mounts[] | 
+        if type == "string" then
+            # Parse string format: extract target value after "target="
+            capture("target=(?<t>[^,]+)") | .t // empty
+        elif type == "object" then
+            # Object format: direct access to target field
+            .target // empty
+        else
+            empty
+        end' "$json_file" 2>/dev/null)
+    
+    # Output targets
+    for t in "${targets[@]}"; do
+        echo "$t"
+    done
+}
+
+# Load workspace mount targets if devcontainer.json exists
+if [ -f "$WORKSPACE_DEVCONTAINER_JSON" ]; then
+    echo "Checking workspace devcontainer.json for mounts: $WORKSPACE_DEVCONTAINER_JSON"
+    while IFS= read -r target; do
+        if [ -n "$target" ]; then
+            WORKSPACE_MOUNT_TARGETS+=("$target")
+            echo "  Found workspace mount target: $target"
+        fi
+    done < <(extract_mount_targets "$WORKSPACE_DEVCONTAINER_JSON")
+    
+    if [ ${#WORKSPACE_MOUNT_TARGETS[@]} -gt 0 ]; then
+        echo "Workspace defines ${#WORKSPACE_MOUNT_TARGETS[@]} mount(s) - these will take priority"
+    fi
+fi
+
+# Function to check if a target path is already defined in workspace mounts
+is_workspace_mount() {
+    local target="$1"
+    for ws_target in "${WORKSPACE_MOUNT_TARGETS[@]}"; do
+        if [ "$ws_target" = "$target" ]; then
+            return 0  # true: is a workspace mount
+        fi
+    done
+    return 1  # false: not a workspace mount
+}
+
+# Function to add mount with workspace priority check
+add_mount_with_priority() {
+    local source="$1"
+    local target="$2"
+    local type="${3:-bind}"
+    local description="${4:-}"
+    
+    if is_workspace_mount "$target"; then
+        echo "  [SKIP] $target - already defined in workspace devcontainer.json"
+        return 1
+    fi
+    
+    if [ -n "$description" ]; then
+        echo "  [ADD] $description"
+    fi
+    
+    if [ "$type" = "volume" ]; then
+        MOUNT_ARGS="$MOUNT_ARGS --mount type=volume,source=$source,target=$target"
+    else
+        MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$source,target=$target"
+    fi
+    return 0
+}
+
+# ============================================================
+# Build mount arguments with workspace priority
+# ============================================================
+echo "Building mount arguments..."
 MOUNT_ARGS=""
-MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$WORKSPACE_PATH,target=/workspaces/$(basename $WORKSPACE_PATH)"
-MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$resolved_config_path,target=/home/vscode/.config/nvim"
-MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/dotfiles/.tmux.conf,target=/home/vscode/.tmux.conf"
-MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/dotfiles/.config/lazygit/config.yml,target=/home/vscode/.config/lazygit/config.yml"
-MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/scripts/start-tmux.sh,target=/usr/local/bin/start-tmux"
+
+# Core workspace mounts
+add_mount_with_priority "$WORKSPACE_PATH" "/workspaces/$(basename $WORKSPACE_PATH)" "bind" "Workspace: $WORKSPACE_PATH"
+add_mount_with_priority "$resolved_config_path" "/home/vscode/.config/nvim" "bind" "Neovim config"
+add_mount_with_priority "$PROJECT_ROOT/dotfiles/.tmux.conf" "/home/vscode/.tmux.conf" "bind" "tmux config"
+add_mount_with_priority "$PROJECT_ROOT/dotfiles/.config/lazygit/config.yml" "/home/vscode/.config/lazygit/config.yml" "bind" "lazygit config"
+add_mount_with_priority "$PROJECT_ROOT/scripts/start-tmux.sh" "/usr/local/bin/start-tmux" "bind" "start-tmux script"
 
 # Add cplt command mount
-MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/bin/cplt,target=/usr/local/bin/cplt"
+add_mount_with_priority "$PROJECT_ROOT/bin/cplt" "/usr/local/bin/cplt" "bind" "cplt command"
 
 # Add Copilot agents mount
-echo "Mounting Copilot agents directory: $PROJECT_ROOT/agents"
-MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/agents,target=/home/vscode/.copilot/agents"
+add_mount_with_priority "$PROJECT_ROOT/agents" "/home/vscode/.copilot/agents" "bind" "Copilot agents directory"
 
 # Add Copilot skills mount
-echo "Mounting Copilot skills directory: $PROJECT_ROOT/skills"
-MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$PROJECT_ROOT/skills,target=/home/vscode/.copilot/skills"
+add_mount_with_priority "$PROJECT_ROOT/skills" "/home/vscode/.copilot/skills" "bind" "Copilot skills directory"
 
 # Add Copilot config mounts if they exist
 COPILOT_DIR="$HOME/.copilot"
 
 if [ -f "$COPILOT_DIR/mcp-config.json" ]; then
-    echo "Mounting Copilot MCP config: $COPILOT_DIR/mcp-config.json"
-    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$COPILOT_DIR/mcp-config.json,target=/home/vscode/.copilot/mcp-config.json"
+    add_mount_with_priority "$COPILOT_DIR/mcp-config.json" "/home/vscode/.copilot/mcp-config.json" "bind" "Copilot MCP config"
 fi
 
 if [ -f "$COPILOT_DIR/config.json" ]; then
-    echo "Mounting Copilot config: $COPILOT_DIR/config.json"
-    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$COPILOT_DIR/config.json,target=/home/vscode/.copilot/config.json"
+    add_mount_with_priority "$COPILOT_DIR/config.json" "/home/vscode/.copilot/config.json" "bind" "Copilot config"
 fi
 
 # Note: Removed duplicate $COPILOT_DIR/skills mount to prevent "Duplicate mount point" error
@@ -383,35 +486,32 @@ fi
 # Add agents-docs mount for document output
 AGENTS_DOCS_DIR="$PROJECT_ROOT/agents-docs/${WORKSPACE_NAME}-${WORKSPACE_HASH}"
 mkdir -p "$AGENTS_DOCS_DIR"
-echo "Mounting agents-docs directory: $AGENTS_DOCS_DIR"
-MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$AGENTS_DOCS_DIR,target=/docs"
+add_mount_with_priority "$AGENTS_DOCS_DIR" "/docs" "bind" "agents-docs directory"
 
 # Add named volume for nvim data persistence
 # Uses workspace-specific volume to keep nvim state independent per workspace
-MOUNT_ARGS="$MOUNT_ARGS --mount type=volume,source=vimcontainer-setup-${WORKSPACE_HASH},target=/home/vscode/.local/share/nvim"
+add_mount_with_priority "vimcontainer-setup-${WORKSPACE_HASH}" "/home/vscode/.local/share/nvim" "volume" "nvim data volume"
 
 # Add Claude Code auth mounts if they exist
 if [ -d "$CLAUDE_AUTH_DIR" ]; then
-    echo "Mounting Claude Code auth directory: $CLAUDE_AUTH_DIR"
-    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$CLAUDE_AUTH_DIR,target=/home/vscode/.claude"
+    add_mount_with_priority "$CLAUDE_AUTH_DIR" "/home/vscode/.claude" "bind" "Claude Code auth directory"
 fi
 
 if [ -f "$CLAUDE_AUTH_JSON" ]; then
-    echo "Mounting Claude Code config file: $CLAUDE_AUTH_JSON"
-    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$CLAUDE_AUTH_JSON,target=/home/vscode/.claude.json"
+    add_mount_with_priority "$CLAUDE_AUTH_JSON" "/home/vscode/.claude.json" "bind" "Claude Code config file"
 fi
 
 # Add gitconfig mount if it exists
 if [ -f "$HOME/.gitconfig" ]; then
-    echo "Mounting gitconfig: $HOME/.gitconfig"
-    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$HOME/.gitconfig,target=/home/vscode/.gitconfig"
+    add_mount_with_priority "$HOME/.gitconfig" "/home/vscode/.gitconfig" "bind" "gitconfig"
 fi
 
 # Add ssh directory mount if it exists
 if [ -d "$HOME/.ssh" ]; then
-    echo "Mounting ssh directory: $HOME/.ssh"
-    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$HOME/.ssh,target=/home/vscode/.ssh"
+    add_mount_with_priority "$HOME/.ssh" "/home/vscode/.ssh" "bind" "ssh directory"
 fi
+
+echo "Mount configuration complete."
 
 command="devcontainer up $rebuild_flag --workspace-folder $TEMP_WORKSPACE $MOUNT_ARGS --remote-env DOCS_ROOT=/docs --remote-env PROJECT_NAME=$WORKSPACE_NAME --additional-features='$ALL_PUBLIC_FEATURES'"
 
