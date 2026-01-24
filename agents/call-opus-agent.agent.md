@@ -26,6 +26,17 @@ opus-parent-agentを呼び出す**前に**、以下の環境情報を収集す�
    - 値が出力された場合: 「設定済み」としてその値を記録
    - 空行または何も出力されない場合: 「未設定」と記録
 
+3. **Gitブランチ名**（必須）
+   ```bash
+   git rev-parse --abbrev-ref HEAD
+   ```
+   - ブランチ名に `/` が含まれる場合は `-` に置換して記録
+   - 例: `feature/doc-update` → `feature-doc-update`
+
+4. **ワークスペースフォルダ名**（必須）
+   - 作業ディレクトリの絶対パスから最後のフォルダ名を抽出
+   - 例: `/workspaces/devcontainer` → `devcontainer`
+
 ### 伝達ルール
 
 1. **依頼内容はそのまま伝達**
@@ -51,7 +62,9 @@ opus-parent-agentを呼び出す**前に**、以下の環境情報を収集す�
 
 ## 補足事項
 - 現在の作業ディレクトリの絶対パス: /workspaces/devcontainer
+- ワークスペースフォルダ名: devcontainer
 - DOCS_ROOT: /docs （設定済み）
+- Gitブランチ名: main
 ```
 
 #### 例2: ユーザーからの依頼に補足事項がある場合
@@ -71,7 +84,9 @@ opus-parent-agentを呼び出す**前に**、以下の環境情報を収集す�
 ## 補足事項
 - 特記事項: ○○に注意
 - 現在の作業ディレクトリの絶対パス: /workspaces/devcontainer
+- ワークスペースフォルダ名: devcontainer
 - DOCS_ROOT: /docs （設定済み）
+- Gitブランチ名: main
 ```
 
 #### 例3: DOCS_ROOTが未設定の場合
@@ -81,5 +96,29 @@ opus-parent-agentを呼び出す**前に**、以下の環境情報を収集す�
 
 ## 補足事項
 - 現在の作業ディレクトリの絶対パス: /workspaces/devcontainer
+- ワークスペースフォルダ名: devcontainer
 - DOCS_ROOT: 未設定
+- Gitブランチ名: feature-new-function
 ```
+
+#### 例4: featureブランチでの作業例
+
+```
+○○を実装してください
+
+## 補足事項
+- 現在の作業ディレクトリの絶対パス: /workspaces/devcontainer
+- ワークスペースフォルダ名: devcontainer
+- DOCS_ROOT: /docs （設定済み）
+- Gitブランチ名: feature-doc-update
+```
+
+### 参考: ドキュメント出力先の決定
+
+opus-parent-agentは収集した環境情報から以下の形式でドキュメント出力先を決定します：
+
+```
+{DOCS_ROOT}/{ブランチ名}/{ワークスペースフォルダ名}/{タスク名}/
+```
+
+例: `/docs/main/devcontainer/機能追加タスク/`
