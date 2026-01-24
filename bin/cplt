@@ -1,30 +1,63 @@
 #!/bin/bash
 
+# cplt - GitHub Copilot CLI wrapper with tmux integration
+#
+# オプション:
+#   -r          セッションを再開（--resumeに変換）
+#   -n, --no-split  tmux pane分割を抑制
+#
+# tmux環境での動作:
+#   - pane数が1の場合、自動的に左右分割（copilot: 30%, 作業用: 70%）
+#   - pane数が2以上の場合、追加分割なし
+#   - ウィンドウ名を「copilot」に変更、終了時に復元
+
+SCRIPT_PATH="$(readlink -f "$0")"
+
 # tmux window名変更機能
 ORIGINAL_WINDOW_NAME=""
 
 restore_window_name() {
-    if [[ -n "$TMUX" && -n "$ORIGINAL_WINDOW_NAME" ]]; then
-        tmux rename-window "$ORIGINAL_WINDOW_NAME"
-    fi
+	if [[ -n "$TMUX" && -n "$ORIGINAL_WINDOW_NAME" ]]; then
+		tmux rename-window "$ORIGINAL_WINDOW_NAME"
+	fi
 }
 
-if [[ -n "$TMUX" ]]; then
-    ORIGINAL_WINDOW_NAME=$(tmux display-message -p '#W')
-    tmux rename-window "copilot"
-    trap restore_window_name EXIT INT TERM
-fi
-
-# -rオプションを検出して--resumeに変換
+# オプション解析: -r (resume), -n/--no-split (pane分割抑制)
 RESUME_FLAG=""
+NO_SPLIT_FLAG=""
 OTHER_ARGS=()
 
 for arg in "$@"; do
-    if [[ "$arg" == "-r" ]]; then
-        RESUME_FLAG="--resume"
-    else
-        OTHER_ARGS+=("$arg")
-    fi
+	case "$arg" in
+	-r)
+		RESUME_FLAG="--resume"
+		;;
+	-n | --no-split)
+		NO_SPLIT_FLAG="1"
+		;;
+	*)
+		OTHER_ARGS+=("$arg")
+		;;
+	esac
 done
+
+# tmux環境でのpane分割処理
+if [[ -n "$TMUX" ]]; then
+	PANE_COUNT=$(tmux list-panes | wc -l)
+
+	# pane数が1かつno-splitオプションが指定されていない場合、paneを分割
+	if [[ "$PANE_COUNT" -eq 1 && -z "$NO_SPLIT_FLAG" ]]; then
+		# 縦分割（左右分割）してcopilotを新しいpane（右側）で起動
+		# -l 40% でcopilot側を40%、元pane側を60%に
+		# --no-split付きで自身を再帰呼び出し（無限ループ防止）
+		tmux split-window -h -l 40% "$SCRIPT_PATH" --no-split "$@"
+		exit 0
+	fi
+
+	# paneが既に分割されている場合、または--no-splitの場合は従来通りの動作
+	ORIGINAL_WINDOW_NAME=$(tmux display-message -p '#W')
+	tmux rename-window "copilot"
+	trap restore_window_name EXIT INT TERM
+fi
 
 copilot --allow-all --agent call-opus-agent $RESUME_FLAG "${OTHER_ARGS[@]}"
