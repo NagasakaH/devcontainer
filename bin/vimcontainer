@@ -377,10 +377,8 @@ if [ -f "$COPILOT_DIR/config.json" ]; then
     MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$COPILOT_DIR/config.json,target=/home/vscode/.copilot/config.json"
 fi
 
-if [ -d "$COPILOT_DIR/skills" ]; then
-    echo "Mounting Copilot skills directory: $COPILOT_DIR/skills"
-    MOUNT_ARGS="$MOUNT_ARGS --mount type=bind,source=$COPILOT_DIR/skills,target=/home/vscode/.copilot/skills"
-fi
+# Note: Removed duplicate $COPILOT_DIR/skills mount to prevent "Duplicate mount point" error
+# Project skills ($PROJECT_ROOT/skills) are already mounted above and take precedence
 
 # Add agents-docs mount for document output
 AGENTS_DOCS_DIR="$PROJECT_ROOT/agents-docs/${WORKSPACE_NAME}-${WORKSPACE_HASH}"
