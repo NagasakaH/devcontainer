@@ -3,6 +3,32 @@
 カスタムDevContainer featuresとvimcontainerスクリプトによる統合開発環境セットアップ。
 GitHub Copilot CLI向けのカスタムエージェント・スキル環境も提供します。
 
+> [!CAUTION]
+> GitHub Copilot CLIのプレミアムリクエストの課金方式に合わせた最適化を行っている
+> トークン数ではなくユーザーとの対話単位での課金になるため、１リクエストでトークンを考慮せず多くの処理を正確に実行させることを優先
+> トークン単位で課金される環境での使用はご注意ください
+
+## 目的
+
+- コマンド一発で生成AIを使った開発環境を構築する
+  - 下記のものがある程度整備され使える状態にする
+    - 生成AIエージェント(Coplilot)
+      - MCPサーバー
+      - Skills
+      - Agents
+      - Commands
+    - ドキュメントビューワー
+      - Docusaurus
+    - エディター(nvim)
+    - Git Client(LazyGit)
+  - 参考リポジトリ
+    - <https://github.com/affaan-m/everything-claude-code>
+- プロセスを整備し、それに沿った開発を簡単に行えるように手順化する
+
+## 全体の概要図
+
+そのうちnanobananaでも使って作ります
+
 ## プロジェクト構成
 
 ```
@@ -56,6 +82,7 @@ cd devcontainer
 ```
 
 `install.sh`は以下を自動で実行します:
+
 - vimcontainerコマンドをPATHに追加
 - LazyVimサブモジュールの初期化（vimcontainer実行時にも自動実行）
 
@@ -73,15 +100,18 @@ vimcontainer
 ```
 
 **引数**:
+
 - 第1引数: イメージ名（例: `dotnet`, `react`）
 - 第2引数: プロジェクトのワークスペースパス（省略時: カレントディレクトリ）
 
 **オプション**:
+
 - `-r, --rebuild`: コンテナを再ビルド
 - `-R, --restore`: バックアップからdevcontainer.jsonを復元
 - `-n, --no-user-devcontainer`: ユーザーの.devcontainerを無視してテンプレートを使用
 
 **利用可能なイメージ**:
+
 - `dotnet`: .NET開発環境
 - `react`: React開発環境（準備中）
 
@@ -131,6 +161,7 @@ vimcontainer -R dotnet ~/my-project
 ```
 
 復元時に削除されるもの：
+
 - 注入されたfeaturesの設定（devcontainer.jsonから）
 - コピーされたlocalFeaturesディレクトリ（tree-sitter, luarocks等）
 
@@ -149,6 +180,7 @@ vimcontainer -n dotnet ~/my-project
 ### 編集例
 
 **編集前（ユーザーの既存設定）:**
+
 ```json
 {
   "name": "My Project",
@@ -161,6 +193,7 @@ vimcontainer -n dotnet ~/my-project
 ```
 
 **編集後（vimcontainer features注入後）:**
+
 ```json
 {
   "name": "My Project",
@@ -208,16 +241,19 @@ tree-sitter CLIをプリビルドバイナリからインストールします�
 .NET開発環境を統合的にセットアップします。
 
 **インストールされるツール**:
+
 - `easydotnet` - .NET開発用CLIツール
 - `dotnet-ef` (v8.0.11) - Entity Framework Core CLI
 - `netcoredbg` (v3.1.0-1030) - .NETデバッガー (nvim-dap対応)
 
 **インストール先**:
+
 - `~/.dotnet/tools/dotnet-easydotnet`
 - `~/.dotnet/tools/dotnet-ef`
 - `/usr/local/bin/netcoredbg`
 
 **自動設定**:
+
 - vscodeユーザーにツールをインストール
 - PATHを自動設定 (`/etc/profile.d/dotnet-tools.sh`)
 
@@ -319,7 +355,8 @@ TEMP_WORKSPACE="/tmp/vimcontainer-${WORKSPACE_HASH}"
 | `~/.copilot/mcp-config.json` | `/home/vscode/.copilot/mcp-config.json` | Copilot MCP設定 |
 | `~/.copilot/config.json` | `/home/vscode/.copilot/config.json` | Copilot設定 |
 
-**注**: 
+**注**:
+
 - nvimのdata/stateディレクトリ（`.local/share/nvim`）はDockerボリュームで永続化され、ワークスペースごとに独立
 - DOCS_ROOT環境変数が自動的に`/docs`に設定される
 
@@ -361,6 +398,7 @@ cplt -r
 ```
 
 **特徴**:
+
 - tmux window名を自動で「copilot」に変更
 - `call-opus-agent`エージェントをデフォルトで使用
 - `-r`オプションで前回のセッションを再開
@@ -400,10 +438,12 @@ vimcontainerが自動設定する環境変数:
 ### 設定済み機能
 
 #### LSP (Language Server Protocol)
+
 - **OmniSharp**: C#言語サーバー（自動起動）
 - **easy-dotnet.nvim**: .NET開発プラグイン統合
 
 #### DAP (Debug Adapter Protocol)
+
 - **netcoredbg**: .NETデバッガー
 - **nvim-dap**: デバッグクライアント
 - **nvim-dap-ui**: デバッグUI
@@ -430,6 +470,7 @@ nvim内で以下のコマンドを使用:
 .NET開発環境では、コンテナ作成時に自動的に`dotnet restore`が実行されます。
 
 設定: `devcontainers/dotnet/features.json`
+
 ```json
 {
   "postCreateCommand": "dotnet restore"
@@ -453,6 +494,7 @@ nvim内で以下のコマンドを使用:
 ユーザー固有のプラグイン設定は`~/.config/nvim/`ではなく、`submodules/LazyVim/lua/plugins/`に配置してください。
 
 **例**: C#開発プラグイン設定
+
 - 場所: `~/.config/nvim/lua/plugins/easy-dotnet.lua`
 - 内容: easy-dotnet.nvim、nvim-dap、nvim-dap-uiの設定
 
@@ -481,7 +523,7 @@ Windows Terminalの設定でOSC 52を有効にします。
 }
 ```
 
-5. 設定を保存して再起動
+1. 設定を保存して再起動
 
 #### 2. Neovim設定
 
@@ -526,6 +568,7 @@ Neovimを再起動後、通常のヤンク/ペースト操作でホストOSの�
 **原因**: Windows TerminalでOSC 52が有効になっていない、または設定が反映されていない
 
 **解決策**:
+
 1. Windows Terminalの設定を再確認
 2. Windows Terminalを完全に再起動
 3. 以下のコマンドでOSC 52が動作するかテスト:
@@ -568,9 +611,11 @@ vim.g.clipboard = {
 ## agents-docs ドキュメント管理
 
 ### 概要
+
 vimcontainerでエージェントが出力するドキュメントを管理する仕組みです。
 
 ### 仕組み
+
 - `agents-docs/` ディレクトリ配下に各環境固有のディレクトリが作成されます
 - ディレクトリ名は `{workspace-name}-{hash}` 形式（例: `myproject-a1b2c3d4`）
 - コンテナ内の `/docs` にマウントされ、エージェントはそこにドキュメントを出力します
@@ -593,6 +638,7 @@ agents-docs/
 ```
 
 ### ドキュメントの出力ルール
+
 - マークダウン形式で出力
 - 図には可能な限りmermaidを使用
 - Docusaurus互換のMDXルールに従う（山括弧はインラインコードで囲む）
@@ -600,6 +646,7 @@ agents-docs/
 - child-agentが`child-<タスク名>.md`を出力
 
 ### プレビュー方法
+
 Docusaurusを使用してagents-docsのドキュメントをブラウザでプレビューできます：
 
 ```bash
@@ -608,7 +655,7 @@ npm install
 npm run start
 ```
 
-ブラウザで http://localhost:3000 にアクセスしてください。
+ブラウザで <http://localhost:3000> にアクセスしてください。
 
 ### 設定ファイル
 
@@ -623,38 +670,50 @@ npm run start
 ## よくある質問
 
 ### Q: コンテナが毎回新しく作成されてしまう
+
 A: vimcontainerは同じワークスペースパスに対して同じコンテナを再利用します。`-r`オプションを付けずに実行してください。
 
 ### Q: nvim-treesitterのパーサーがインストールできない
+
 A: パーサーはDockerボリューム内（`vimcontainer-setup-{hash}`）に保存されます。ワークスペースごとに独立しており、初回は自動インストールされます。
 
 ### Q: C# LSPが動作しない
+
 A: `dotnet restore`が実行されているか確認してください。初回起動時は`postCreateCommand`で自動実行されますが、手動で実行する場合は:
+
 ```bash
 dotnet restore
 ```
 
 ### Q: デバッガーが起動しない
+
 A: netcoredbgがインストールされているか確認:
+
 ```bash
 which netcoredbg
 # /usr/local/bin/netcoredbg
 ```
 
 ### Q: Copilot CLIが動作しない
+
 A: 以下を確認してください:
+
 1. `copilot-cli` featureがインストールされているか
 2. GitHub認証が完了しているか（`copilot auth login`を実行）
 3. `cplt`コマンドを使用しているか
 
 ### Q: DOCS_ROOTが取得できない
+
 A: `get-docs-root`スキルを使用してください:
+
 ```bash
 python3 ~/.copilot/skills/get-docs-root/scripts/get_docs_root.py
 ```
+
 空行が返る場合は環境変数が設定されていません。
 
 ### Q: lazygitの設定が反映されない
+
 A: `dotfiles/.config/lazygit/config.yml`がマウントされています。設定を変更した場合はコンテナを再起動してください。
 
 ## ライセンス
