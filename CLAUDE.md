@@ -9,6 +9,7 @@ This is a custom DevContainer environment setup that provides integrated develop
 ## Essential Commands
 
 ### Installation
+
 ```bash
 # Initial setup - installs devcontainer CLI and adds bin/ to PATH
 ./install.sh
@@ -18,6 +19,7 @@ source ~/.bashrc  # or ~/.zshrc
 ```
 
 ### Using vimcontainer
+
 ```bash
 # Start a .NET development environment
 vimcontainer ~/git/devcontainer/devcontainers/dotnet ~/path/to/your/project
@@ -27,10 +29,12 @@ vimcontainer -r ~/git/devcontainer/devcontainers/dotnet ~/path/to/your/project
 ```
 
 **Arguments:**
+
 - First: Path to `.devcontainer` folder or its parent directory
 - Second: Project workspace path to mount in container
 
 **Options:**
+
 - `-r, --rebuild`: Force rebuild of the container
 - `-R, --restore`: Restore original devcontainer.json from backup (Mode A only)
 - `-n, --no-user-devcontainer`: Ignore user's .devcontainer, use template
@@ -59,6 +63,7 @@ When the workspace contains an existing `.devcontainer/devcontainer.json`:
 4. **Direct Workspace Usage**: Uses workspace path directly without temp directory
 
 Key functions:
+
 - `detect_user_devcontainer()`: Checks for valid .devcontainer in workspace
 - `backup_devcontainer_json()`: Creates backup before editing
 - `restore_devcontainer_json()`: Restores from backup and cleans up injected features
@@ -75,21 +80,21 @@ When no .devcontainer exists in workspace (original behavior):
 
 ### Mount Structure
 
-| Host | Container | Purpose |
-|------|-----------|---------|
-| `{WORKSPACE_PATH}` | `/workspaces/{basename}` | Project files |
-| `submodules/LazyVim` | `/home/vscode/.config/nvim` | Shared Neovim config |
-| `dotfiles/.tmux.conf` | `/home/vscode/.tmux.conf` | tmux config |
-| `dotfiles/.config/lazygit/config.yml` | `/home/vscode/.config/lazygit/config.yml` | lazygit config |
-| `agents/` | `/home/vscode/.copilot/agents` | Copilot agents |
-| `skills/` | `/home/vscode/.copilot/skills` | Copilot skills |
-| `bin/cplt` | `/usr/local/bin/cplt` | Copilot CLI wrapper |
-| `agents-docs/{name}-{hash}` | `/docs` | Document output directory |
-| `~/.copilot/mcp-config.json` | `/home/vscode/.copilot/mcp-config.json` | MCP config (if exists) |
-| `~/.copilot/config.json` | `/home/vscode/.copilot/config.json` | Copilot config (if exists) |
-| `~/.claude` | `/home/vscode/.claude` | Claude Code auth (if exists) |
-| `~/.claude.json` | `/home/vscode/.claude.json` | Claude Code config (if exists) |
-| `vimcontainer-setup-{hash}` (volume) | `/home/vscode/.local/share/nvim` | Neovim data (persistent volume) |
+| Host                                  | Container                                 | Purpose                         |
+| ------------------------------------- | ----------------------------------------- | ------------------------------- |
+| `{WORKSPACE_PATH}`                    | `/workspaces/{basename}`                  | Project files                   |
+| `submodules/LazyVim`                  | `/home/vscode/.config/nvim`               | Shared Neovim config            |
+| `dotfiles/.tmux.conf`                 | `/home/vscode/.tmux.conf`                 | tmux config                     |
+| `dotfiles/.config/lazygit/config.yml` | `/home/vscode/.config/lazygit/config.yml` | lazygit config                  |
+| `agents/`                             | `/home/vscode/.copilot/agents`            | Copilot agents                  |
+| `skills/`                             | `/home/vscode/.copilot/skills`            | Copilot skills                  |
+| `bin/cplt`                            | `/usr/local/bin/cplt`                     | Copilot CLI wrapper             |
+| `agents-docs/{name}-{hash}`           | `/docs`                                   | Document output directory       |
+| `~/.copilot/mcp-config.json`          | `/home/vscode/.copilot/mcp-config.json`   | MCP config (if exists)          |
+| `~/.copilot/config.json`              | `/home/vscode/.copilot/config.json`       | Copilot config (if exists)      |
+| `~/.claude`                           | `/home/vscode/.claude`                    | Claude Code auth (if exists)    |
+| `~/.claude.json`                      | `/home/vscode/.claude.json`               | Claude Code config (if exists)  |
+| `vimcontainer-setup-{hash}` (volume)  | `/home/vscode/.local/share/nvim`          | Neovim data (persistent volume) |
 
 **Note**: nvim data is now persisted via named volumes per workspace, enabling state retention across container rebuilds.
 
@@ -98,11 +103,13 @@ When no .devcontainer exists in workspace (original behavior):
 Located in `features/` directory:
 
 **tree-sitter** (`features/tree-sitter/`)
+
 - Installs tree-sitter CLI from prebuilt binaries
 - Default version: 0.25.10 (configurable)
 - Supports amd64/arm64 architectures
 
 **easydotnet** (`features/easydotnet/`)
+
 - Installs .NET development toolchain:
   - `easydotnet` CLI tool
   - `dotnet-ef` (Entity Framework Core CLI v8.0.11)
@@ -110,26 +117,32 @@ Located in `features/` directory:
 - Auto-configures PATH via `/etc/profile.d/dotnet-tools.sh`
 
 **luarocks** (`features/luarocks/`)
+
 - Installs Lua package manager
 
 **claude-code** (`features/claude-code/`)
+
 - Installs Claude Code CLI for AI-powered development
 - Requires Node.js (installsAfter node feature)
 - Version: configurable (default: latest)
 
 **copilot-cli** (`features/copilot-cli/`)
+
 - Installs GitHub Copilot CLI for AI-powered terminal assistance
 - Version: configurable (default: latest)
 
 **lazygit** (`features/lazygit/`)
+
 - Installs lazygit - a simple terminal UI for git commands
 - Default version: 0.51.1 (configurable)
 
 **yazi** (`features/yazi/`)
+
 - Installs Yazi, a blazing fast terminal file manager written in Rust
 - Default version: 0.4.2 (configurable)
 
 **vimcontainer-setup** (`features/vimcontainer-setup/`)
+
 - Creates and configures `/home/vscode/.local/share/nvim` directory for Neovim data persistence
 - Sets proper ownership for vscode user
 
@@ -143,6 +156,7 @@ Located in `features/` directory:
 ### Copilot CLI Integration
 
 **Commands** (`bin/`)
+
 - `cplt` - Copilot CLI wrapper that:
   - Renames tmux window to "copilot" during execution
   - Supports `-r` flag for `--resume`
@@ -194,12 +208,14 @@ Modular packages that extend AI capabilities:
 ### DevContainer Templates
 
 **devcontainers/dotnet/**
+
 - Base image: `mcr.microsoft.com/vscode/devcontainers/dotnet:8.0-bookworm`
 - Platform: `linux/amd64` (for Apple Silicon compatibility)
 - Includes: OmniSharp LSP, nvim-dap with netcoredbg
 - Auto-runs: `dotnet restore` on container creation
 
 **devcontainers/react/**
+
 - Currently empty template (placeholder)
 
 ## Development Workflow
@@ -219,6 +235,7 @@ When working on .NET projects in this repo:
 ### Modifying Features
 
 When editing feature installation scripts:
+
 1. Make changes in `features/{feature-name}/install.sh`
 2. Update `features/{feature-name}/devcontainer-feature.json` if needed
 3. Rebuild container with `-r` flag to apply changes
@@ -234,25 +251,31 @@ When editing feature installation scripts:
 ## Key Implementation Details
 
 ### Container Hash System
+
 ```bash
 # From vimcontainer:65
 WORKSPACE_HASH=$(echo -n "$WORKSPACE_PATH" | md5sum | cut -d' ' -f1 | cut -c1-8)
 TEMP_WORKSPACE="/tmp/vimcontainer-${WORKSPACE_HASH}"
 ```
+
 This ensures workspace → container mapping is deterministic.
 
 ### Feature Injection
+
 ```bash
 # From vimcontainer:104-105
 jq '.features += {"./tree-sitter": {}, "./easydotnet": {}, "./luarocks": {}}' "$ORIGINAL_JSON"
 ```
+
 Features are merged into devcontainer.json at runtime, not stored in source control.
 
 ### postCreateCommand Auto-Addition
+
 ```bash
 # From vimcontainer:108-113
 POST_CREATE_CMD="bash -c 'for dir in /workspaces/*/; do if [ -f \"\$dir\"*.sln ] || [ -f \"\$dir\"*.csproj ]; then cd \"\$dir\" && dotnet restore && break; fi; done'"
 ```
+
 Auto-detects .NET projects and runs restore.
 
 ## Important Notes

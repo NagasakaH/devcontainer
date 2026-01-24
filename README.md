@@ -121,10 +121,10 @@ vimcontainerは、ワークスペースに既存の`.devcontainer`ディレク�
 
 ### 動作モード
 
-| モード | 条件 | 動作 |
-|--------|------|------|
+| モード     | 条件                                | 動作                                        |
+| ---------- | ----------------------------------- | ------------------------------------------- |
 | **Mode A** | ワークスペースに`.devcontainer`あり | ユーザーのdevcontainer.jsonにfeaturesを注入 |
-| **Mode B** | ワークスペースに`.devcontainer`なし | テンプレートベースで新規作成 |
+| **Mode B** | ワークスペースに`.devcontainer`なし | テンプレートベースで新規作成                |
 
 ### Mode A: ユーザー設定編集モード
 
@@ -203,7 +203,9 @@ vimcontainer -n dotnet ~/my-project
     "./tree-sitter": {},
     "./luarocks": {},
     "./claude-code": {},
-    "ghcr.io/duduribeiro/devcontainer-features/neovim:1": {"version": "stable"},
+    "ghcr.io/duduribeiro/devcontainer-features/neovim:1": {
+      "version": "stable"
+    },
     "ghcr.io/jungaretti/features/ripgrep:1": {},
     "ghcr.io/devcontainers-extra/features/tmux-apt-get:1": {}
   },
@@ -340,20 +342,20 @@ TEMP_WORKSPACE="/tmp/vimcontainer-${WORKSPACE_HASH}"
 
 ### マウント構成
 
-| ホスト | コンテナ | 説明 |
-|--------|----------|------|
-| `{WORKSPACE_PATH}` | `/workspaces/{basename}` | プロジェクトファイル |
-| `submodules/LazyVim` | `/home/vscode/.config/nvim` | Neovim設定 (共有) |
-| `dotfiles/.tmux.conf` | `/home/vscode/.tmux.conf` | tmux設定 |
-| `dotfiles/.config/lazygit/` | `/home/vscode/.config/lazygit/` | lazygit設定 |
-| `agents/` | `/home/vscode/.copilot/agents/` | Copilotカスタムエージェント |
-| `skills/` | `/home/vscode/.copilot/skills/` | Copilotカスタムスキル |
-| `bin/cplt` | `/usr/local/bin/cplt` | Copilot CLIラッパー |
-| `agents-docs/{workspace}/` | `/docs` | エージェント出力ドキュメント |
-| `~/.claude` | `/home/vscode/.claude` | Claude Code認証情報 |
-| `~/.claude.json` | `/home/vscode/.claude.json` | Claude Code設定 |
-| `~/.copilot/mcp-config.json` | `/home/vscode/.copilot/mcp-config.json` | Copilot MCP設定 |
-| `~/.copilot/config.json` | `/home/vscode/.copilot/config.json` | Copilot設定 |
+| ホスト                       | コンテナ                                | 説明                         |
+| ---------------------------- | --------------------------------------- | ---------------------------- |
+| `{WORKSPACE_PATH}`           | `/workspaces/{basename}`                | プロジェクトファイル         |
+| `submodules/LazyVim`         | `/home/vscode/.config/nvim`             | Neovim設定 (共有)            |
+| `dotfiles/.tmux.conf`        | `/home/vscode/.tmux.conf`               | tmux設定                     |
+| `dotfiles/.config/lazygit/`  | `/home/vscode/.config/lazygit/`         | lazygit設定                  |
+| `agents/`                    | `/home/vscode/.copilot/agents/`         | Copilotカスタムエージェント  |
+| `skills/`                    | `/home/vscode/.copilot/skills/`         | Copilotカスタムスキル        |
+| `bin/cplt`                   | `/usr/local/bin/cplt`                   | Copilot CLIラッパー          |
+| `agents-docs/{workspace}/`   | `/docs`                                 | エージェント出力ドキュメント |
+| `~/.claude`                  | `/home/vscode/.claude`                  | Claude Code認証情報          |
+| `~/.claude.json`             | `/home/vscode/.claude.json`             | Claude Code設定              |
+| `~/.copilot/mcp-config.json` | `/home/vscode/.copilot/mcp-config.json` | Copilot MCP設定              |
+| `~/.copilot/config.json`     | `/home/vscode/.copilot/config.json`     | Copilot設定                  |
 
 **注**:
 
@@ -408,30 +410,30 @@ cplt -r
 
 `agents/`ディレクトリには、タスク管理のためのエージェント定義が含まれます。
 
-| エージェント | 説明 |
-|-------------|------|
-| `call-opus-agent` | 環境情報収集とOpus親エージェント呼び出し |
-| `opus-parent-agent` | タスク分割と並列実行管理 |
-| `opus-child-agent` | 実際の作業実行とドキュメント出力 |
+| エージェント        | 説明                                     |
+| ------------------- | ---------------------------------------- |
+| `call-opus-agent`   | 環境情報収集とOpus親エージェント呼び出し |
+| `opus-parent-agent` | タスク分割と並列実行管理                 |
+| `opus-child-agent`  | 実際の作業実行とドキュメント出力         |
 
 ### カスタムスキル
 
 `skills/`ディレクトリには、再利用可能なスキルが含まれます。
 
-| スキル | 説明 |
-|--------|------|
-| `get-docs-root` | DOCS_ROOT環境変数の値を取得 |
-| `mcp-builder` | MCPサーバー構築ガイド（TypeScript/Python対応） |
-| `skill-creator` | 新しいスキル作成のガイドライン |
+| スキル          | 説明                                           |
+| --------------- | ---------------------------------------------- |
+| `get-docs-root` | DOCS_ROOT環境変数の値を取得                    |
+| `mcp-builder`   | MCPサーバー構築ガイド（TypeScript/Python対応） |
+| `skill-creator` | 新しいスキル作成のガイドライン                 |
 
 ### 環境変数
 
 vimcontainerが自動設定する環境変数:
 
-| 変数名 | 値 | 説明 |
-|--------|-----|------|
-| `DOCS_ROOT` | `/docs` | エージェント出力ドキュメントのルート |
-| `PROJECT_NAME` | ワークスペース名 | プロジェクト識別子 |
+| 変数名         | 値               | 説明                                 |
+| -------------- | ---------------- | ------------------------------------ |
+| `DOCS_ROOT`    | `/docs`          | エージェント出力ドキュメントのルート |
+| `PROJECT_NAME` | ワークスペース名 | プロジェクト識別子                   |
 
 ## .NET開発環境
 
@@ -659,13 +661,13 @@ npm run start
 
 ### 設定ファイル
 
-| ファイル | 説明 |
-|---------|------|
-| `agents/opus-parent-agent.md` | 親エージェントのタスク管理・ドキュメント出力ルール |
-| `agents/opus-child-agent.md` | 子エージェントの作業実行・ドキュメント出力ルール |
-| `agents/call-opus-agent.agent.md` | 環境情報収集・Opusエージェント呼び出し |
-| `bin/vimcontainer` | agents-docsのマウント設定 |
-| `skills/get-docs-root/` | DOCS_ROOT環境変数取得スキル |
+| ファイル                          | 説明                                               |
+| --------------------------------- | -------------------------------------------------- |
+| `agents/opus-parent-agent.md`     | 親エージェントのタスク管理・ドキュメント出力ルール |
+| `agents/opus-child-agent.md`      | 子エージェントの作業実行・ドキュメント出力ルール   |
+| `agents/call-opus-agent.agent.md` | 環境情報収集・Opusエージェント呼び出し             |
+| `bin/vimcontainer`                | agents-docsのマウント設定                          |
+| `skills/get-docs-root/`           | DOCS_ROOT環境変数取得スキル                        |
 
 ## よくある質問
 

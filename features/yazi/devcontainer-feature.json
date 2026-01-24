@@ -1,13 +1,13 @@
 {
-    "id": "yazi",
-    "version": "1.0.0",
-    "name": "Yazi",
-    "description": "Installs Yazi, a blazing fast terminal file manager written in Rust",
-    "options": {
-        "version": {
-            "type": "string",
-            "default": "0.4.2",
-            "description": "Version of Yazi to install"
-        }
+  "id": "yazi",
+  "version": "1.0.0",
+  "name": "Yazi",
+  "description": "Installs Yazi, a blazing fast terminal file manager written in Rust",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "0.4.2",
+      "description": "Version of Yazi to install"
     }
+  }
 }

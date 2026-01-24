@@ -1,7 +1,7 @@
 ---
 name: call-opus-agent
 description: opusをサブエージェント呼び出して作業を依頼します
-tools: ['agent', 'bash']
+tools: ["agent", "bash"]
 agent: gpt-4.1
 ---
 
@@ -16,6 +16,7 @@ agent: gpt-4.1
 opus-parent-agentを呼び出す**前に**、以下の環境情報を収集すること：
 
 1. **現在の作業ディレクトリの絶対パス**（必須）
+
    ```bash
    pwd
    ```
@@ -27,9 +28,11 @@ opus-parent-agentを呼び出す**前に**、以下の環境情報を収集す�
    - 空行または何も出力されない場合: 「未設定」と記録
 
 3. **Gitブランチ名**（必須）
+
    ```bash
    git rev-parse --abbrev-ref HEAD
    ```
+
    - ブランチ名に `/` が含まれる場合は `-` に置換して記録
    - 例: `feature/doc-update` → `feature-doc-update`
 
@@ -52,11 +55,13 @@ opus-parent-agentを呼び出す**前に**、以下の環境情報を収集す�
 #### 例1: ユーザーからの依頼に補足事項がない場合
 
 ユーザーからの依頼：
+
 ```
 ○○を実装してください
 ```
 
 環境情報を収集後、opus-parent-agentへの伝達：
+
 ```
 ○○を実装してください
 
@@ -70,6 +75,7 @@ opus-parent-agentを呼び出す**前に**、以下の環境情報を収集す�
 #### 例2: ユーザーからの依頼に補足事項がある場合
 
 ユーザーからの依頼：
+
 ```
 ○○を実装してください
 
@@ -78,6 +84,7 @@ opus-parent-agentを呼び出す**前に**、以下の環境情報を収集す�
 ```
 
 環境情報を収集後、opus-parent-agentへの伝達：
+
 ```
 ○○を実装してください
 

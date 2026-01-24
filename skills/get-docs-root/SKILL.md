@@ -7,7 +7,6 @@ description: Retrieve the value of the DOCS_ROOT environment variable. Use this 
 
 ## Overview
 
-
 ## Usage
 
 To retrieve the value of the DOCS_ROOT environment variable, execute the following script:

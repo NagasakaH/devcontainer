@@ -23,8 +23,8 @@ features/<feature-name>/
 
 ```json
 {
-  "id": "<feature-name>",       // kebab-case, matches folder name
-  "version": "1.0.0",           // semver format
+  "id": "<feature-name>", // kebab-case, matches folder name
+  "version": "1.0.0", // semver format
   "name": "Human Readable Name",
   "description": "Brief description of what this feature installs"
 }
@@ -42,7 +42,7 @@ features/<feature-name>/
     }
   },
   "installsAfter": [
-    "ghcr.io/devcontainers/features/node"  // Dependencies
+    "ghcr.io/devcontainers/features/node" // Dependencies
   ],
   "postStartCommand": "command to run after container starts"
 }
@@ -52,13 +52,13 @@ features/<feature-name>/
 
 Five proven patterns exist. See `references/install-patterns.md` for complete templates.
 
-| Pattern | Use Case | Example |
-|---------|----------|---------|
-| npm | Node.js packages | claude-code, editorconfig-prettier |
-| binary | Pre-built binaries from GitHub | lazygit, copilot-cli, yazi |
-| source | Build from source | luarocks |
-| dotnet | .NET global tools | easydotnet |
-| setup | Directory/config setup | vimcontainer-setup |
+| Pattern | Use Case                       | Example                            |
+| ------- | ------------------------------ | ---------------------------------- |
+| npm     | Node.js packages               | claude-code, editorconfig-prettier |
+| binary  | Pre-built binaries from GitHub | lazygit, copilot-cli, yazi         |
+| source  | Build from source              | luarocks                           |
+| dotnet  | .NET global tools              | easydotnet                         |
+| setup   | Directory/config setup         | vimcontainer-setup                 |
 
 ## Creation Workflow
 

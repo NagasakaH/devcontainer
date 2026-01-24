@@ -44,6 +44,7 @@ fi
 ```
 
 **devcontainer-feature.json requirements**:
+
 ```json
 {
   "installsAfter": ["ghcr.io/devcontainers/features/node"]
@@ -103,6 +104,7 @@ tool --version
 **Architecture mapping variations**:
 
 Some projects use different naming:
+
 - `x86_64` / `arm64` (most common)
 - `amd64` / `arm64`
 - `Linux_x86_64` / `Linux_arm64`
@@ -215,6 +217,7 @@ echo "Tool location: ${USER_HOME}/.dotnet/tools"
 ```
 
 **devcontainer-feature.json requirements**:
+
 ```json
 {
   "installsAfter": ["ghcr.io/devcontainers/features/dotnet"]

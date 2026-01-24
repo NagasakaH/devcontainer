@@ -1,6 +1,6 @@
 /**
  * debounce.js
- * 
+ *
  * 関数の実行を遅延させ、連続呼び出しをまとめるユーティリティ
  */
 
@@ -12,13 +12,13 @@
  */
 function debounce(func, wait) {
   let timeout;
-  
+
   return function executedFunction(...args) {
     const later = () => {
       clearTimeout(timeout);
       func(...args);
     };
-    
+
     clearTimeout(timeout);
     timeout = setTimeout(later, wait);
   };

@@ -1,13 +1,13 @@
 {
-    "id": "lazygit",
-    "version": "1.0.0",
-    "name": "Lazygit",
-    "description": "Installs lazygit - a simple terminal UI for git commands",
-    "options": {
-        "version": {
-            "type": "string",
-            "default": "0.51.1",
-            "description": "Version of lazygit to install"
-        }
+  "id": "lazygit",
+  "version": "1.0.0",
+  "name": "Lazygit",
+  "description": "Installs lazygit - a simple terminal UI for git commands",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "0.51.1",
+      "description": "Version of lazygit to install"
     }
+  }
 }

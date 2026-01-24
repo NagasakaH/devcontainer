@@ -10,7 +10,5 @@
       "description": "Version of Claude Code CLI to install"
     }
   },
-  "installsAfter": [
-    "ghcr.io/devcontainers/features/node"
-  ]
+  "installsAfter": ["ghcr.io/devcontainers/features/node"]
 }

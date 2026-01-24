@@ -1,13 +1,13 @@
 {
-    "id": "tree-sitter",
-    "version": "1.0.0",
-    "name": "Tree-sitter",
-    "description": "Installs the tree-sitter CLI for parsing and syntax highlighting (built from source)",
-    "options": {
-        "version": {
-            "type": "string",
-            "default": "0.25.10",
-            "description": "Version of tree-sitter to install"
-        }
+  "id": "tree-sitter",
+  "version": "1.0.0",
+  "name": "Tree-sitter",
+  "description": "Installs the tree-sitter CLI for parsing and syntax highlighting (built from source)",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "0.25.10",
+      "description": "Version of tree-sitter to install"
     }
+  }
 }
