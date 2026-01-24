@@ -469,6 +469,9 @@ add_mount_with_priority "$PROJECT_ROOT/agents" "/home/vscode/.copilot/agents" "b
 # Add Copilot skills mount
 add_mount_with_priority "$PROJECT_ROOT/skills" "/home/vscode/.copilot/skills" "bind" "Copilot skills directory"
 
+# Add Copilot prompts mount
+add_mount_with_priority "$PROJECT_ROOT/prompts" "/home/vscode/.copilot/prompts" "bind" "Copilot prompts directory"
+
 # Add Copilot config mounts if they exist
 COPILOT_DIR="$HOME/.copilot"
 

@@ -102,16 +102,16 @@ function scanDirectory(dirPath, depth = 0) {
     }
   }
   
-  // ファイルをソートして追加
-  files.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  // ファイルをソートして追加（降順）
+  files.sort((a, b) => b.name.localeCompare(a.name, 'ja'));
   for (const file of files) {
     const filePath = path.join(dirPath, file.name);
     const docId = generateDocId(filePath);
     items.push(docId);
   }
   
-  // ディレクトリをソートして再帰的に処理
-  directories.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  // ディレクトリをソートして再帰的に処理（降順）
+  directories.sort((a, b) => b.name.localeCompare(a.name, 'ja'));
   for (const dir of directories) {
     const subDirPath = path.join(dirPath, dir.name);
     const subItems = scanDirectory(subDirPath, depth + 1);
