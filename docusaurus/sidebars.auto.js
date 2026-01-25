@@ -90,9 +90,7 @@ const sidebars = {
               type: "category",
               label: "1 1",
               collapsed: true,
-              items: [
-                "local/DOCS_ROOT環境変数設定/1-1/child-vimcontainer環境変数設定",
-              ],
+              items: ["local/DOCS_ROOT環境変数設定/1-1/child-vimcontainer環境変数設定"],
             },
           ],
         },
@@ -100,9 +98,7 @@ const sidebars = {
           type: "category",
           label: "Devcontainer Main ドキュメント出力修正",
           collapsed: true,
-          items: [
-            "local/devcontainer-main-ドキュメント出力修正/タスク実行履歴",
-          ],
+          items: ["local/devcontainer-main-ドキュメント出力修正/タスク実行履歴"],
         },
         {
           type: "category",

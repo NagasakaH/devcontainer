@@ -39,8 +39,7 @@ function createSymlink() {
       const existingTarget = fs.readlinkSync(CONFIG.linkPath);
       if (
         existingTarget === CONFIG.sourcePath ||
-        path.resolve(path.dirname(CONFIG.linkPath), existingTarget) ===
-          CONFIG.sourcePath
+        path.resolve(path.dirname(CONFIG.linkPath), existingTarget) === CONFIG.sourcePath
       ) {
         console.log("[情報] 正しいシンボリックリンクが既に存在します");
         return;
@@ -51,13 +50,9 @@ function createSymlink() {
     } else if (stats.isDirectory()) {
       // 通常のディレクトリの場合
       console.log("[警告] docsディレクトリが既に存在します");
-      console.log(
-        "[情報] シンボリックリンクに置き換えるには、docsディレクトリを削除してください",
-      );
+      console.log("[情報] シンボリックリンクに置き換えるには、docsディレクトリを削除してください");
       console.log(`       rm -rf "${CONFIG.linkPath}"`);
-      console.log(
-        "[情報] または、コピー方式を使用してください（generate-sidebar.jsを直接実行）",
-      );
+      console.log("[情報] または、コピー方式を使用してください（generate-sidebar.jsを直接実行）");
       return;
     }
   }
@@ -65,18 +60,12 @@ function createSymlink() {
   // シンボリックリンクを作成
   try {
     // 相対パスでシンボリックリンクを作成
-    const relativePath = path.relative(
-      path.dirname(CONFIG.linkPath),
-      CONFIG.sourcePath,
-    );
+    const relativePath = path.relative(path.dirname(CONFIG.linkPath), CONFIG.sourcePath);
     fs.symlinkSync(relativePath, CONFIG.linkPath, "dir");
     console.log("[成功] シンボリックリンクを作成しました");
     console.log(`       ${CONFIG.linkPath} -> ${relativePath}`);
   } catch (error) {
-    console.error(
-      "[エラー] シンボリックリンクの作成に失敗しました:",
-      error.message,
-    );
+    console.error("[エラー] シンボリックリンクの作成に失敗しました:", error.message);
     console.log("[ヒント] 管理者権限が必要な場合があります（Windows）");
     process.exit(1);
   }

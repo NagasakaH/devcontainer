@@ -18,13 +18,7 @@ const CONFIG = {
   // サイドバー設定の出力パス
   sidebarOutputPath: path.resolve(__dirname, "../sidebars.auto.js"),
   // 除外するファイル/ディレクトリ
-  excludePatterns: [
-    ".gitkeep",
-    ".git",
-    ".DS_Store",
-    "node_modules",
-    ".obsidian",
-  ],
+  excludePatterns: [".gitkeep", ".git", ".DS_Store", "node_modules", ".obsidian"],
   // サポートするファイル拡張子
   supportedExtensions: [".md", ".mdx"],
 };
@@ -62,9 +56,7 @@ function generateDocId(filePath) {
  */
 function generateLabel(dirName) {
   // ハイフン/アンダースコアをスペースに変換し、各単語の先頭を大文字に
-  return dirName
-    .replace(/[-_]/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  return dirName.replace(/[-_]/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 /**
@@ -213,9 +205,7 @@ module.exports = sidebars;
 `;
 
   fs.writeFileSync(CONFIG.sidebarOutputPath, content, "utf-8");
-  console.log(
-    `[成功] サイドバー設定を出力しました: ${CONFIG.sidebarOutputPath}`,
-  );
+  console.log(`[成功] サイドバー設定を出力しました: ${CONFIG.sidebarOutputPath}`);
 }
 
 /**
@@ -228,9 +218,7 @@ function ensureIntroDoc() {
     // docsディレクトリに.mdファイルがあるか確認
     if (fs.existsSync(CONFIG.docsDestPath)) {
       const files = fs.readdirSync(CONFIG.docsDestPath);
-      const hasMarkdown = files.some(
-        (f) => f.endsWith(".md") || f.endsWith(".mdx"),
-      );
+      const hasMarkdown = files.some((f) => f.endsWith(".md") || f.endsWith(".mdx"));
 
       if (!hasMarkdown) {
         // イントロドキュメントを作成
@@ -290,9 +278,7 @@ function main() {
 
   // サイドバー設定を出力
   if (sidebarItems.length === 0) {
-    console.log(
-      "[情報] ドキュメントが見つかりませんでした。デフォルトのサイドバーを生成します。",
-    );
+    console.log("[情報] ドキュメントが見つかりませんでした。デフォルトのサイドバーを生成します。");
     writeSidebarConfig(["intro"]);
   } else {
     writeSidebarConfig(sidebarItems);

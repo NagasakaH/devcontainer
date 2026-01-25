@@ -81,38 +81,28 @@ function startWatching() {
   watcher
     .on("add", (filePath) => {
       if (isWatchedFile(filePath)) {
-        console.log(
-          `[watch] ファイル追加: ${path.relative(CONFIG.watchPath, filePath)}`,
-        );
+        console.log(`[watch] ファイル追加: ${path.relative(CONFIG.watchPath, filePath)}`);
         debouncedGenerate();
       }
     })
     .on("change", (filePath) => {
       if (isWatchedFile(filePath)) {
-        console.log(
-          `[watch] ファイル変更: ${path.relative(CONFIG.watchPath, filePath)}`,
-        );
+        console.log(`[watch] ファイル変更: ${path.relative(CONFIG.watchPath, filePath)}`);
         debouncedGenerate();
       }
     })
     .on("unlink", (filePath) => {
       if (isWatchedFile(filePath)) {
-        console.log(
-          `[watch] ファイル削除: ${path.relative(CONFIG.watchPath, filePath)}`,
-        );
+        console.log(`[watch] ファイル削除: ${path.relative(CONFIG.watchPath, filePath)}`);
         debouncedGenerate();
       }
     })
     .on("addDir", (dirPath) => {
-      console.log(
-        `[watch] ディレクトリ追加: ${path.relative(CONFIG.watchPath, dirPath)}`,
-      );
+      console.log(`[watch] ディレクトリ追加: ${path.relative(CONFIG.watchPath, dirPath)}`);
       debouncedGenerate();
     })
     .on("unlinkDir", (dirPath) => {
-      console.log(
-        `[watch] ディレクトリ削除: ${path.relative(CONFIG.watchPath, dirPath)}`,
-      );
+      console.log(`[watch] ディレクトリ削除: ${path.relative(CONFIG.watchPath, dirPath)}`);
       debouncedGenerate();
     })
     .on("error", (error) => {

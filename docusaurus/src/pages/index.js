@@ -18,9 +18,7 @@ function HomepageHeader() {
         <Heading as="h1" style={{ fontSize: "3rem" }}>
           {siteConfig.title}
         </Heading>
-        <p style={{ fontSize: "1.5rem", marginBottom: "2rem" }}>
-          {siteConfig.tagline}
-        </p>
+        <p style={{ fontSize: "1.5rem", marginBottom: "2rem" }}>{siteConfig.tagline}</p>
         <Link className="button button--secondary button--lg" to="/docs/intro">
           ドキュメントを見る 📚
         </Link>

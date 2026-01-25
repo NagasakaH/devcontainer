@@ -44,7 +44,7 @@ server.registerTool(
       content: [{ type: "text", text: JSON.stringify(output) }],
       structuredContent: output, // Modern pattern for structured data
     };
-  },
+  }
 );
 ```
 
@@ -139,25 +139,12 @@ const UserSearchInputSchema = z
       .min(2, "Query must be at least 2 characters")
       .max(200, "Query must not exceed 200 characters")
       .describe("Search string to match against names/emails"),
-    limit: z
-      .number()
-      .int()
-      .min(1)
-      .max(100)
-      .default(20)
-      .describe("Maximum results to return"),
-    offset: z
-      .number()
-      .int()
-      .min(0)
-      .default(0)
-      .describe("Number of results to skip for pagination"),
+    limit: z.number().int().min(1).max(100).default(20).describe("Maximum results to return"),
+    offset: z.number().int().min(0).default(0).describe("Number of results to skip for pagination"),
     response_format: z
       .nativeEnum(ResponseFormat)
       .default(ResponseFormat.MARKDOWN)
-      .describe(
-        "Output format: 'markdown' for human-readable or 'json' for machine-readable",
-      ),
+      .describe("Output format: 'markdown' for human-readable or 'json' for machine-readable"),
   })
   .strict();
 
@@ -291,7 +278,7 @@ Error Handling:
         ],
       };
     }
-  },
+  }
 );
 ```
 
@@ -305,10 +292,7 @@ import { z } from "zod";
 // Basic schema with validation
 const CreateUserSchema = z
   .object({
-    name: z
-      .string()
-      .min(1, "Name is required")
-      .max(100, "Name must not exceed 100 characters"),
+    name: z.string().min(1, "Name is required").max(100, "Name must not exceed 100 characters"),
     email: z.string().email("Invalid email format"),
     age: z
       .number()
@@ -333,19 +317,8 @@ const SearchSchema = z.object({
 
 // Optional fields with defaults
 const PaginationSchema = z.object({
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(100)
-    .default(20)
-    .describe("Maximum results to return"),
-  offset: z
-    .number()
-    .int()
-    .min(0)
-    .default(0)
-    .describe("Number of results to skip"),
+  limit: z.number().int().min(1).max(100).default(20).describe("Maximum results to return"),
+  offset: z.number().int().min(0).default(0).describe("Number of results to skip"),
 });
 ```
 
@@ -364,9 +337,7 @@ const inputSchema = z.object({
   response_format: z
     .nativeEnum(ResponseFormat)
     .default(ResponseFormat.MARKDOWN)
-    .describe(
-      "Output format: 'markdown' for human-readable or 'json' for machine-readable",
-    ),
+    .describe("Output format: 'markdown' for human-readable or 'json' for machine-readable"),
 });
 ```
 
@@ -477,7 +448,7 @@ async function makeApiRequest<T>(
   endpoint: string,
   method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
   data?: any,
-  params?: any,
+  params?: any
 ): Promise<T> {
   try {
     const response = await axios({
@@ -511,9 +482,7 @@ async function fetchData(resourceId: string): Promise<ResourceData> {
 
 // Bad: Promise chains
 function fetchData(resourceId: string): Promise<ResourceData> {
-  return axios
-    .get(`${API_URL}/resource/${resourceId}`)
-    .then((response) => response.data); // Harder to read and maintain
+  return axios.get(`${API_URL}/resource/${resourceId}`).then((response) => response.data); // Harder to read and maintain
 }
 ```
 
@@ -650,25 +619,12 @@ const UserSearchInputSchema = z
       .min(2, "Query must be at least 2 characters")
       .max(200, "Query must not exceed 200 characters")
       .describe("Search string to match against names/emails"),
-    limit: z
-      .number()
-      .int()
-      .min(1)
-      .max(100)
-      .default(20)
-      .describe("Maximum results to return"),
-    offset: z
-      .number()
-      .int()
-      .min(0)
-      .default(0)
-      .describe("Number of results to skip for pagination"),
+    limit: z.number().int().min(1).max(100).default(20).describe("Maximum results to return"),
+    offset: z.number().int().min(0).default(0).describe("Number of results to skip for pagination"),
     response_format: z
       .nativeEnum(ResponseFormat)
       .default(ResponseFormat.MARKDOWN)
-      .describe(
-        "Output format: 'markdown' for human-readable or 'json' for machine-readable",
-      ),
+      .describe("Output format: 'markdown' for human-readable or 'json' for machine-readable"),
   })
   .strict();
 
@@ -679,7 +635,7 @@ async function makeApiRequest<T>(
   endpoint: string,
   method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
   data?: any,
-  params?: any,
+  params?: any
 ): Promise<T> {
   try {
     const response = await axios({
@@ -741,7 +697,7 @@ server.registerTool(
   },
   async (params: UserSearchInput) => {
     // Implementation as shown above
-  },
+  }
 );
 
 // Main function
@@ -836,7 +792,7 @@ server.registerResource(
         },
       ],
     };
-  },
+  }
 );
 
 // List available resources dynamically
