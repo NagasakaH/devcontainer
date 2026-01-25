@@ -42,8 +42,8 @@
     "ghcr.io/devcontainers/features/python:1": {
       "toolsToInstall": "ruff"
     },
-    "ghcr.io/devcontainers/features/shfmt:0": {},
+    "ghcr.io/devcontainers/features/shfmt:1": {},
     "ghcr.io/msclock/features/gitlab-ci-local:0": {},
-    "ghcr.io/jsburckhardt/devcontainer-features/uv:1"{}
+    "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
   }
 }
