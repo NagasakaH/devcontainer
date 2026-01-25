@@ -1,0 +1,29 @@
+# CSharpier Ignore File
+# Similar to .gitignore syntax
+
+# Build outputs
+**/bin/
+**/obj/
+
+# Generated code
+**/Generated/
+**/*.generated.cs
+**/*.g.cs
+**/*.designer.cs
+
+# Migrations (often auto-generated)
+**/Migrations/
+
+# Test artifacts
+**/TestResults/
+
+# NuGet packages
+**/packages/
+
+# IDE files
+**/.vs/
+**/.idea/
+
+# Temporary files
+**/temp/
+**/tmp/
