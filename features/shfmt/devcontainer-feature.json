@@ -1,0 +1,14 @@
+{
+  "id": "shfmt",
+  "version": "1.0.0",
+  "name": "shfmt",
+  "description": "Shell script formatter - formats shell programs (sh, bash, mksh)",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "3.10.0",
+      "description": "Version of shfmt to install"
+    }
+  },
+  "installsAfter": []
+}
