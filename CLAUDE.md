@@ -232,6 +232,17 @@ When working on .NET projects in this repo:
    - Use standard nvim-dap commands (`:lua require('dap').toggle_breakpoint()`, etc.)
 4. `postCreateCommand` automatically runs `dotnet restore` on first container creation
 
+### Adding DevContainer Features
+
+When creating or adding DevContainer features:
+
+1. **Check official features first**: Before creating a custom feature, check https://containers.dev/features for official features
+2. **Prefer official features**: If an official feature exists that meets your requirements, use it instead of creating a custom one
+3. **Custom features**: Only create custom features in `features/` directory when:
+   - No official feature provides the required functionality
+   - The official feature doesn't meet specific configuration needs
+   - You need functionality that's unique to this project
+
 ### Modifying Features
 
 When editing feature installation scripts:
