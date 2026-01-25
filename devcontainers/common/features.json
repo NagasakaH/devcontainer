@@ -27,6 +27,10 @@
     {
       "name": "lazygit",
       "options": {}
+    },
+    {
+      "name": "uv",
+      "options": {}
     }
   ],
   "publicFeatures": {
@@ -38,6 +42,11 @@
     "ghcr.io/devcontainers/features/node:1": {},
     "ghcr.io/devcontainers-extra/features/tmux-apt-get:1": {},
     "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-    "ghcr.io/devcontainers-community/npm-features/prettier:1": {}
+    "ghcr.io/devcontainers-community/npm-features/prettier:1": {},
+    "ghcr.io/devcontainers/features/python:1": {
+      "toolsToInstall": "ruff"
+    },
+    "ghcr.io/devcontainers/features/shfmt:0": {},
+    "ghcr.io/msclock/features/gitlab-ci-local:0": {}
   }
 }

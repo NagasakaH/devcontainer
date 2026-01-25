@@ -3,7 +3,12 @@
   "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
   "runArgs": ["--platform=linux/amd64"],
   "features": {
-    "ghcr.io/devcontainers/features/git:1": {}
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/python:1": {
+      "toolsToInstall": "ruff"
+    },
+    "ghcr.io/devcontainers/features/shfmt:0": {},
+    "ghcr.io/devcontainers-community/npm-features/prettier:1": {}
   },
   "forwardPorts": [8888]
 }

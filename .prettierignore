@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+
+# Cache directories
+.cache/
+.parcel-cache/
+*.tsbuildinfo
+
+# Git
+.git/
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+
+# Submodules
+submodules/
+
+# Generated files
+*.min.js
+*.min.css
+
+# Package lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Docusaurus
+docusaurus/.docusaurus/
+docusaurus/build/
+
+# Dotfiles (neovim config etc.)
+dotfiles/
+
+# Agents docs (may contain special formatting)
+agents-docs/
+
+# Files formatted by other tools (avoid Prettier conflicts)
+# Python files - formatted by ruff
+*.py
+
+# Shell scripts - formatted by shfmt
+*.sh
+*.bash
+
+# C# files - formatted by CSharpier
+*.cs

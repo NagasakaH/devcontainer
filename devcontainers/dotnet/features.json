@@ -7,6 +7,8 @@
       }
     }
   ],
-  "publicFeatures": {},
+  "publicFeatures": {
+    "ghcr.io/nikiforovall/devcontainer-features/dotnet-csharpier:1": {}
+  },
   "postCreateCommand": "bash -c 'for dir in /workspaces/*/; do if [ -f \"$dir\"*.sln ] || [ -f \"$dir\"*.csproj ]; then cd \"$dir\" && dotnet restore && break; fi; done'"
 }
