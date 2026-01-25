@@ -1,21 +1,72 @@
 ---
 name: build-fix
-description: TypeScriptやビルドエラーを段階的に修正するワークフロー。ビルドエラー、コンパイルエラー、TypeScriptエラーの修正時に使用。「ビルドエラーを直して」「コンパイルが通らない」「TSエラーを修正」などのフレーズでトリガーされる。
+description: ビルドエラーを段階的に修正するワークフロー。TypeScript、Python、C#などのビルド・コンパイルエラー修正時に使用。「ビルドエラーを直して」「コンパイルが通らない」「TSエラーを修正」「型エラーを修正」などのフレーズでトリガーされる。
 ---
 
 # ビルド＆修正
 
-TypeScriptやビルドエラーを段階的に修正するワークフロー。
+TypeScript、Python、C# などのビルドエラーを段階的に修正するワークフロー。
+
+## 言語自動検出
+
+プロジェクトのファイル構成から言語を自動検出します：
+
+| 検出条件 | 言語 |
+|----------|------|
+| `package.json` + `.ts`/`.tsx`ファイルが存在 | TypeScript |
+| `pyproject.toml` または `requirements.txt` が存在 | Python |
+| `.csproj` または `.sln` が存在 | C# |
+
+言語が検出できない場合は、ユーザーに確認してください。
 
 ## ワークフロー
 
 ### 1. ビルドを実行
 
+言語・プロジェクト構成に応じてコマンドを実行：
+
+#### TypeScript/JavaScript
+
 ```bash
 npm run build
 # または
 pnpm build
+yarn build
+
+# 型チェックのみ
+npx tsc --noEmit
 ```
+
+#### Python
+
+```bash
+# 型チェック（mypyを使用）
+mypy src/
+
+# 厳格モード
+mypy --strict src/
+
+# リントチェック
+ruff check src/
+
+# パッケージビルド
+python -m build
+```
+
+#### C#
+
+```bash
+# 基本的なビルド
+dotnet build
+
+# Releaseビルド
+dotnet build -c Release
+
+# 警告をエラーとして扱う
+dotnet build /warnaserror
+```
+
+> 📖 詳細なコマンドオプションは `reference/{language}/commands.md` を参照してください。
 
 ### 2. エラー出力を解析
 
@@ -58,3 +109,11 @@ pnpm build
 - どの修正がどのエラーに対応するか追跡が困難になる
 - 修正同士が干渉する可能性がある
 - 新たなエラーの原因特定が難しくなる
+
+## 言語別リファレンス
+
+より詳細な情報は、各言語のリファレンスを参照してください：
+
+- [TypeScript リファレンス](reference/typescript/commands.md)
+- [Python リファレンス](reference/python/commands.md)
+- [C# リファレンス](reference/csharp/commands.md)

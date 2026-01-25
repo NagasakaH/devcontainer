@@ -7,6 +7,28 @@ description: テスト駆動開発（TDD）のワークフローを実践する�
 
 テスト駆動開発の方法論を実践するためのガイド。
 
+## 対応言語
+
+このスキルは以下の言語に対応しています。プロジェクトの言語を自動検出し、適切なテストフレームワークとコマンドを使用します。
+
+| 言語 | テストフレームワーク | 詳細 |
+|------|---------------------|------|
+| TypeScript/JavaScript | Vitest, Jest | [reference/typescript/frameworks.md](reference/typescript/frameworks.md) |
+| Python | pytest, unittest | [reference/python/frameworks.md](reference/python/frameworks.md) |
+| C# | xUnit, NUnit, MSTest | [reference/csharp/frameworks.md](reference/csharp/frameworks.md) |
+
+### 言語自動検出
+
+プロジェクトの言語は以下のファイルの存在で判別します：
+
+| ファイル | 判定される言語 |
+|----------|----------------|
+| `package.json` | TypeScript/JavaScript |
+| `pyproject.toml`, `setup.py`, `requirements.txt` | Python |
+| `*.csproj`, `*.sln` | C# |
+
+`{{language}}` 変数が指定された場合は、その言語の設定を優先します。
+
 ## TDDサイクル
 
 ```
@@ -87,7 +109,157 @@ REPEAT:   次の機能/シナリオへ
   - セキュリティ重要コード
   - コアビジネスロジック
 
-## 実装例
+## 言語別実装例
+
+以下に各言語でのTDD実装例を示します。詳細な情報は各言語のリファレンスを参照してください。
+
+### TypeScript/JavaScript (Vitest/Jest)
+
+```typescript
+// lib/liquidity.ts
+export interface MarketData {
+  totalVolume: number
+  bidAskSpread: number
+  activeTraders: number
+  lastTradeTime: Date
+}
+
+export function calculateLiquidityScore(market: MarketData): number {
+  // TODO: 実装
+  throw new Error('未実装')
+}
+```
+
+```typescript
+// lib/liquidity.test.ts
+import { describe, it, expect } from 'vitest'
+import { calculateLiquidityScore } from './liquidity'
+
+describe('calculateLiquidityScore', () => {
+  it('流動性の高い市場では高スコアを返す', () => {
+    const market = {
+      totalVolume: 100000,
+      bidAskSpread: 0.01,
+      activeTraders: 500,
+      lastTradeTime: new Date()
+    }
+
+    const score = calculateLiquidityScore(market)
+
+    expect(score).toBeGreaterThan(80)
+    expect(score).toBeLessThanOrEqual(100)
+  })
+})
+```
+
+**テスト実行:**
+
+```bash
+npm test lib/liquidity.test.ts
+npx vitest run --coverage
+```
+
+### Python (pytest)
+
+```python
+# lib/liquidity.py
+from dataclasses import dataclass
+from datetime import datetime
+
+@dataclass
+class MarketData:
+    total_volume: float
+    bid_ask_spread: float
+    active_traders: int
+    last_trade_time: datetime
+
+def calculate_liquidity_score(market: MarketData) -> float:
+    # TODO: 実装
+    raise NotImplementedError("未実装")
+```
+
+```python
+# tests/test_liquidity.py
+import pytest
+from datetime import datetime
+from lib.liquidity import calculate_liquidity_score, MarketData
+
+class TestCalculateLiquidityScore:
+    def test_high_liquidity_returns_high_score(self):
+        market = MarketData(
+            total_volume=100000,
+            bid_ask_spread=0.01,
+            active_traders=500,
+            last_trade_time=datetime.now()
+        )
+        
+        score = calculate_liquidity_score(market)
+        
+        assert score > 80
+        assert score <= 100
+```
+
+**テスト実行:**
+
+```bash
+pytest tests/test_liquidity.py
+pytest --cov=lib --cov-report=html
+```
+
+### C# (xUnit)
+
+```csharp
+// Models/MarketData.cs
+public record MarketData(
+    double TotalVolume,
+    double BidAskSpread,
+    int ActiveTraders,
+    DateTime LastTradeTime
+);
+
+// Services/LiquidityCalculator.cs
+public static class LiquidityCalculator
+{
+    public static double CalculateLiquidityScore(MarketData market)
+    {
+        // TODO: 実装
+        throw new NotImplementedException("未実装");
+    }
+}
+```
+
+```csharp
+// Tests/LiquidityCalculatorTests.cs
+using Xunit;
+
+public class LiquidityCalculatorTests
+{
+    [Fact]
+    public void HighLiquidity_ReturnsHighScore()
+    {
+        var market = new MarketData(
+            TotalVolume: 100000,
+            BidAskSpread: 0.01,
+            ActiveTraders: 500,
+            LastTradeTime: DateTime.Now
+        );
+        
+        var score = LiquidityCalculator.CalculateLiquidityScore(market);
+        
+        Assert.True(score > 80);
+        Assert.True(score <= 100);
+    }
+}
+```
+
+**テスト実行:**
+
+```bash
+dotnet test
+dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
+```
+
+## 実装例（TypeScript 詳細版）
 
 ### ステップ1: インターフェース定義（SCAFFOLD）
 

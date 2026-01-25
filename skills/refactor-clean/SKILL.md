@@ -14,17 +14,52 @@ description: デッドコードの安全な削除ガイド。未使用のコー�
 3. **安全な削除** - テスト検証を行いながら段階的に削除
 4. **変更の追跡** - 削除した項目のサマリーを提示
 
+## 言語自動検出
+
+プロジェクトの言語は以下のファイルの存在で自動判定する：
+
+| 言語 | 判定ファイル |
+|------|-------------|
+| TypeScript | `tsconfig.json`, `package.json` |
+| Python | `pyproject.toml`, `setup.py`, `requirements.txt` |
+| C# | `*.csproj`, `*.sln` |
+
+言語が指定された場合（`{{language}}`）はその言語を優先する。
+
 ## ワークフロー
 
 ### ステップ1: デッドコード分析ツールの実行
 
-以下のツールを使用してデッドコードを分析する：
+プロジェクトの言語に応じて適切なツールを選択する。
+
+#### TypeScript/JavaScript
 
 | ツール | 検出対象 |
 |--------|----------|
 | knip | 未使用のエクスポート、ファイル |
 | depcheck | 未使用の依存関係 |
 | ts-prune | 未使用のTypeScriptエクスポート |
+
+詳細: `reference/typescript/tools.md` を参照
+
+#### Python
+
+| ツール | 検出対象 |
+|--------|----------|
+| vulture | 未使用のコード全般 |
+| autoflake | 未使用のインポート |
+| ruff | 未使用コード（F401, F841） |
+
+詳細: `reference/python/tools.md` を参照
+
+#### C#
+
+| ツール | 検出対象 |
+|--------|----------|
+| Roslyn Analyzers | 未使用コード（IDE0051, IDE0052等） |
+| dotnet format | コードスタイル違反 |
+
+詳細: `reference/csharp/tools.md` を参照
 
 **注意**: プロジェクトに適したツールを選択する。すべてのツールが必要なわけではない。
 

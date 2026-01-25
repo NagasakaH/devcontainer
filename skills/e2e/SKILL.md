@@ -1,11 +1,33 @@
 ---
 name: e2e
-description: Playwrightを使用したE2Eテストの生成・実行ガイド。テストジャーニーの作成、テスト実行、スクリーンショット/動画/トレースの取得、アーティファクトのアップロードをサポート。「E2Eテスト」「エンドツーエンドテスト」「Playwrightテスト」「ユーザージャーニーのテスト」などのフレーズで発動。
+description: E2Eテストの生成・実行ガイド。テストジャーニーの作成、テスト実行、スクリーンショット/動画/トレースの取得、アーティファクトのアップロードをサポート。「E2Eテスト」「エンドツーエンドテスト」「Playwrightテスト」「ユーザージャーニーのテスト」などのフレーズで発動。
 ---
 
 # E2Eテスト生成（E2E）
 
-Playwrightを使用してエンドツーエンドテストを生成・保守・実行するためのガイド。
+エンドツーエンドテストを生成・保守・実行するためのガイド。
+
+## 対応言語
+
+このスキルは以下の言語に対応しています。プロジェクトの言語を自動検出し、適切なテストフレームワークとコマンドを使用します。
+
+| 言語 | E2Eフレームワーク | 詳細 |
+|------|------------------|------|
+| TypeScript/JavaScript | Playwright, Cypress | [reference/typescript/frameworks.md](reference/typescript/frameworks.md) |
+| Python | Playwright for Python, Selenium | [reference/python/frameworks.md](reference/python/frameworks.md) |
+| C# | Playwright for .NET, Selenium | [reference/csharp/frameworks.md](reference/csharp/frameworks.md) |
+
+### 言語自動検出
+
+プロジェクトの言語は以下のファイルの存在で判別します：
+
+| ファイル | 判定される言語 |
+|----------|----------------|
+| `package.json` | TypeScript/JavaScript |
+| `pyproject.toml`, `setup.py`, `requirements.txt` | Python |
+| `*.csproj`, `*.sln` | C# |
+
+`{{language}}` 変数が指定された場合は、その言語の設定を優先します。
 
 ## このスキルの目的
 
@@ -34,7 +56,7 @@ Playwrightを使用してエンドツーエンドテストを生成・保守・�
 - テストで検証すべき項目
 - 必要なテストケース数
 
-### ステップ2: Playwrightテストの生成
+### ステップ2: E2Eテストの生成
 
 Page Object Modelパターンを使用してテストコードを生成する。
 
@@ -63,7 +85,100 @@ Page Object Modelパターンを使用してテストコードを生成する。
 - 生成されたアーティファクト
 - 推奨事項（必要に応じて）
 
-## テストコードテンプレート
+## 言語別テストコード例
+
+以下に各言語でのE2Eテスト例を示します。詳細な情報は各言語のリファレンスを参照してください。
+
+### TypeScript/JavaScript (Playwright)
+
+```typescript
+// tests/e2e/market-search.spec.ts
+import { test, expect } from '@playwright/test'
+import { MarketsPage } from '../pages/MarketsPage'
+
+test.describe('市場検索', () => {
+  test('ユーザーは市場を検索してフィルタリングできる', async ({ page }) => {
+    // 1. ページへ移動
+    const marketsPage = new MarketsPage(page)
+    await marketsPage.goto()
+
+    // 2. 検索を実行
+    await marketsPage.search('election')
+
+    // 3. 結果を検証
+    await expect(marketsPage.marketCards).toHaveCount(5)
+  })
+})
+```
+
+**テスト実行:**
+
+```bash
+npx playwright test
+npx playwright test --headed  # ブラウザ表示
+npx playwright show-report    # レポート表示
+```
+
+### Python (Playwright for Python)
+
+```python
+# tests/e2e/test_market_search.py
+from playwright.sync_api import Page, expect
+from pages.markets_page import MarketsPage
+
+class TestMarketSearch:
+    def test_user_can_search_and_filter_markets(self, page: Page):
+        # 1. ページへ移動
+        markets_page = MarketsPage(page)
+        markets_page.goto()
+
+        # 2. 検索を実行
+        markets_page.search('election')
+
+        # 3. 結果を検証
+        expect(markets_page.market_cards).to_have_count(5)
+```
+
+**テスト実行:**
+
+```bash
+pytest tests/e2e/
+pytest tests/e2e/ --headed  # ブラウザ表示
+```
+
+### C# (Playwright for .NET)
+
+```csharp
+// Tests/E2E/MarketSearchTests.cs
+using Microsoft.Playwright;
+using Xunit;
+
+public class MarketSearchTests : PlaywrightTest
+{
+    [Fact]
+    public async Task UserCanSearchAndFilterMarkets()
+    {
+        // 1. ページへ移動
+        var marketsPage = new MarketsPage(Page);
+        await marketsPage.GotoAsync();
+
+        // 2. 検索を実行
+        await marketsPage.SearchAsync("election");
+
+        // 3. 結果を検証
+        await Expect(marketsPage.MarketCards).ToHaveCountAsync(5);
+    }
+}
+```
+
+**テスト実行:**
+
+```bash
+dotnet test
+dotnet test --filter "Category=E2E"
+```
+
+## テストコードテンプレート（TypeScript）
 
 ```typescript
 // tests/e2e/{機能名}/{テスト名}.spec.ts
@@ -140,12 +255,14 @@ export class {ページ名}Page {
 
 ## クイックコマンド
 
+### TypeScript/JavaScript (Playwright)
+
 ```bash
 # 全E2Eテストを実行
 npx playwright test
 
 # 特定のテストファイルを実行
-npx playwright test tests/e2e/{機能名}/{テスト名}.spec.ts
+npx playwright test tests/e2e/market-search.spec.ts
 
 # ヘッドモードで実行（ブラウザを表示）
 npx playwright test --headed
@@ -160,7 +277,36 @@ npx playwright codegen http://localhost:3000
 npx playwright show-report
 
 # トレースファイルを表示
-npx playwright show-trace artifacts/trace-{id}.zip
+npx playwright show-trace artifacts/trace.zip
+```
+
+### Python (Playwright for Python)
+
+```bash
+# 全E2Eテストを実行
+pytest tests/e2e/
+
+# ヘッドモードで実行
+pytest tests/e2e/ --headed
+
+# 特定のブラウザで実行
+pytest tests/e2e/ --browser chromium
+
+# トレース記録
+pytest tests/e2e/ --tracing on
+```
+
+### C# (Playwright for .NET)
+
+```bash
+# 全E2Eテストを実行
+dotnet test --filter "Category=E2E"
+
+# 詳細出力
+dotnet test -v detailed
+
+# Playwrightブラウザインストール
+pwsh bin/Debug/net8.0/playwright.ps1 install
 ```
 
 ## 不安定なテストの検出

@@ -2,6 +2,8 @@
 name: mcp-builder
 description: Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. Use when building MCP servers to integrate external APIs or services, whether in Python (FastMCP) or Node/TypeScript (MCP SDK).
 license: Complete terms in LICENSE.txt
+variables:
+  language: auto  # auto | typescript | python | csharp
 ---
 
 # MCP Server Development Guide
@@ -9,6 +11,31 @@ license: Complete terms in LICENSE.txt
 ## Overview
 
 Create MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. The quality of an MCP server is measured by how well it enables LLMs to accomplish real-world tasks.
+
+---
+
+## 🌐 Language Selection Guide
+
+Choose the appropriate language based on your requirements:
+
+| Language | Recommended For | SDK Maturity | Key Benefits |
+|----------|-----------------|--------------|--------------|
+| **TypeScript** | New projects, prototypes, web integration | High (Official) | Excellent SDK support, wide compatibility, AI-friendly |
+| **Python** | Data science, ML integration, scripting | High (Official) | FastMCP framework, extensive libraries |
+| **C#/.NET** | Enterprise, Azure, Windows integration | Medium (Official) | Native .NET integration, DI support |
+
+### Auto-Detection Logic
+
+When `{{language}}` is set to `auto`, detect the project language by checking:
+
+1. **Existing files in the project:**
+   - `package.json` or `tsconfig.json` → TypeScript
+   - `pyproject.toml`, `setup.py`, or `requirements.txt` → Python
+   - `*.csproj`, `*.sln`, or `global.json` → C#
+
+2. **User's explicit request:** If the user mentions a specific language, use that.
+
+3. **Default:** TypeScript (recommended for new projects)
 
 ---
 
@@ -52,8 +79,13 @@ Key pages to review:
 
 **Recommended stack:**
 
-- **Language**: TypeScript (high-quality SDK support and good compatibility in many execution environments e.g. MCPB. Plus AI models are good at generating TypeScript code, benefiting from its broad usage, static typing and good linting tools)
-- **Transport**: Streamable HTTP for remote servers, using stateless JSON (simpler to scale and maintain, as opposed to stateful sessions and streaming responses). stdio for local servers.
+Choose based on your target environment and team expertise:
+
+- **TypeScript** (recommended for most cases): High-quality SDK support and good compatibility in many execution environments. AI models generate excellent TypeScript code due to its broad usage and static typing.
+- **Python**: Best for data science integration, ML workflows, and rapid prototyping with FastMCP.
+- **C#/.NET**: Ideal for enterprise environments, Azure integration, and existing .NET ecosystems.
+
+**Transport**: Streamable HTTP for remote servers (stateless JSON, simpler to scale). stdio for local servers.
 
 **Load framework documentation:**
 
@@ -68,6 +100,11 @@ Key pages to review:
 
 - **Python SDK**: Use WebFetch to load `https://raw.githubusercontent.com/modelcontextprotocol/python-sdk/main/README.md`
 - [🐍 Python Guide](./reference/python_mcp_server.md) - Python patterns and examples
+
+**For C#/.NET:**
+
+- **C# SDK**: Use WebFetch to load `https://raw.githubusercontent.com/modelcontextprotocol/csharp-sdk/main/README.md`
+- [🔷 C# Guide](./reference/csharp/csharp_mcp_server.md) - C# patterns and examples
 
 #### 1.4 Plan Your Implementation
 
@@ -87,6 +124,7 @@ See language-specific guides for project setup:
 
 - [⚡ TypeScript Guide](./reference/node_mcp_server.md) - Project structure, package.json, tsconfig.json
 - [🐍 Python Guide](./reference/python_mcp_server.md) - Module organization, dependencies
+- [🔷 C# Guide](./reference/csharp/csharp_mcp_server.md) - Solution structure, .csproj configuration
 
 #### 2.2 Implement Core Infrastructure
 
@@ -103,7 +141,7 @@ For each tool:
 
 **Input Schema:**
 
-- Use Zod (TypeScript) or Pydantic (Python)
+- Use Zod (TypeScript), Pydantic (Python), or Data Annotations (C#)
 - Include constraints and clear descriptions
 - Add examples in field descriptions
 
@@ -157,6 +195,11 @@ Review for:
 
 - Verify syntax: `python -m py_compile your_server.py`
 - Test with MCP Inspector
+
+**C#/.NET:**
+
+- Run `dotnet build` to verify compilation
+- Test with MCP Inspector or via stdio
 
 See language-specific guides for detailed testing approaches and quality checklists.
 
@@ -228,6 +271,7 @@ Load these resources as needed during development:
 
 - **Python SDK**: Fetch from `https://raw.githubusercontent.com/modelcontextprotocol/python-sdk/main/README.md`
 - **TypeScript SDK**: Fetch from `https://raw.githubusercontent.com/modelcontextprotocol/typescript-sdk/main/README.md`
+- **C# SDK**: Fetch from `https://raw.githubusercontent.com/modelcontextprotocol/csharp-sdk/main/README.md`
 
 ### Language-Specific Implementation Guides (Load During Phase 2)
 
@@ -242,6 +286,14 @@ Load these resources as needed during development:
   - Project structure
   - Zod schema patterns
   - Tool registration with `server.registerTool`
+  - Complete working examples
+  - Quality checklist
+
+- [🔷 C# Implementation Guide](./reference/csharp/csharp_mcp_server.md) - Complete C#/.NET guide with:
+  - Project structure and .csproj configuration
+  - Data Annotations and validation patterns
+  - Tool registration with `[McpServerTool]` attribute
+  - Dependency injection support
   - Complete working examples
   - Quality checklist
 

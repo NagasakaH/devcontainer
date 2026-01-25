@@ -1,6 +1,8 @@
 ---
 name: update-docs
-description: ドキュメント更新ガイド。ソースコードの信頼できる情報源（Single Source of Truth）からドキュメントを同期・更新する。package.jsonや.env.exampleから自動的にドキュメントを生成し、古いドキュメントを特定する。「ドキュメント更新」「docs更新」「ドキュメント同期」などのフレーズで発動。
+description: ドキュメント更新ガイド。ソースコードの信頼できる情報源（Single Source of Truth）からドキュメントを同期・更新する。package.json、pyproject.toml、.csprojなどから自動的にドキュメントを生成し、古いドキュメントを特定する。「ドキュメント更新」「docs更新」「ドキュメント同期」などのフレーズで発動。
+variables:
+  language: auto  # auto | typescript | python | csharp
 ---
 
 # ドキュメント更新（Update Documentation）
@@ -11,16 +13,46 @@ description: ドキュメント更新ガイド。ソースコードの信頼で�
 
 ソースコードの信頼できる情報源（Single Source of Truth）からドキュメントを自動的に生成・更新し、ドキュメントとコードの整合性を保つ。
 
-**信頼できる情報源**: `package.json` と `.env.example`
+---
+
+## 🌐 言語自動検出
+
+`{{language}}` が `auto` の場合、以下の順序でプロジェクトの言語を検出する：
+
+1. **メタデータファイルの存在確認:**
+   - `package.json` or `tsconfig.json` → TypeScript/Node.js
+   - `pyproject.toml`, `setup.py`, or `requirements.txt` → Python
+   - `*.csproj`, `*.sln`, or `global.json` → C#/.NET
+
+2. **ユーザーの指定:** ユーザーが明示的に言語を指定した場合はそれを使用
+
+3. **デフォルト:** TypeScript/Node.js
+
+---
+
+## 信頼できる情報源（言語別）
+
+| 言語 | メタデータファイル | スクリプト | 依存関係 |
+|------|-------------------|------------|----------|
+| **TypeScript/Node.js** | `package.json` | `scripts` セクション | `dependencies`, `devDependencies` |
+| **Python** | `pyproject.toml` / `setup.py` | `[project.scripts]`, `[tool.poetry.scripts]` | `[project.dependencies]` |
+| **C#/.NET** | `*.csproj` | `dotnet` コマンド, MSBuild ターゲット | `PackageReference` 要素 |
+
+### 言語別リファレンス
+
+- [📦 TypeScript/Node.js メタデータガイド](./reference/typescript/typescript_metadata.md)
+- [🐍 Python メタデータガイド](./reference/python/python_metadata.md)
+- [🔷 C# メタデータガイド](./reference/csharp/csharp_metadata.md)
 
 ## ワークフロー
 
-### ステップ1: package.json のスクリプトセクションを読み取る
+### ステップ1: メタデータファイルを読み取る
+
+言語を検出し、適切なメタデータファイルからスクリプトと依存関係を抽出する。
+
+#### TypeScript/Node.js の場合
 
 `package.json` の `scripts` セクションから以下を生成する：
-
-- スクリプトリファレンステーブルを生成
-- コメントから説明文を含める
 
 ```markdown
 ## 利用可能なスクリプト
@@ -30,6 +62,34 @@ description: ドキュメント更新ガイド。ソースコードの信頼で�
 | `npm run build` | プロジェクトをビルド |
 | `npm run test` | テストを実行 |
 | `npm run lint` | リンターを実行 |
+```
+
+#### Python の場合
+
+`pyproject.toml` または `setup.py` からスクリプトを抽出する：
+
+```markdown
+## 利用可能なスクリプト
+
+| スクリプト | 説明 |
+|-----------|------|
+| `poetry run my-cli` | CLI ツールを実行 |
+| `pytest` | テストを実行 |
+| `black .` | コードフォーマット |
+```
+
+#### C#/.NET の場合
+
+標準的な `dotnet` コマンドとカスタムターゲットを抽出する：
+
+```markdown
+## 利用可能なコマンド
+
+| コマンド | 説明 |
+|----------|------|
+| `dotnet build` | プロジェクトをビルド |
+| `dotnet test` | テストを実行 |
+| `dotnet run` | アプリケーションを実行 |
 ```
 
 ### ステップ2: .env.example を読み取る
@@ -87,7 +147,9 @@ find docs -name "*.md" -mtime +90 -type f
 
 ## ドキュメントテンプレート
 
-### CONTRIB.md テンプレート
+### CONTRIB.md テンプレート（言語別）
+
+#### TypeScript/Node.js
 
 ```markdown
 # コントリビューションガイド
@@ -100,26 +162,76 @@ find docs -name "*.md" -mtime +90 -type f
 
 ## 開発ワークフロー
 
-### ブランチ戦略
-- `main`: 本番ブランチ
-- `develop`: 開発ブランチ
-- `feature/*`: 機能ブランチ
-
 ### 利用可能なスクリプト
 
-{package.jsonから自動生成}
+{package.json scripts から自動生成}
 
 ## テスト
 
-### テストの実行
-{テストコマンドと説明}
-
-### テストの書き方
-{テスト規約}
+`npm test` を実行
 
 ## 環境変数
 
-{.env.exampleから自動生成}
+{.env.example から自動生成}
+```
+
+#### Python
+
+```markdown
+# コントリビューションガイド
+
+## 開発環境のセットアップ
+
+1. リポジトリをクローン
+2. 仮想環境を作成: `python -m venv .venv`
+3. 仮想環境を有効化: `source .venv/bin/activate`
+4. 依存関係をインストール: `pip install -e ".[dev]"` または `poetry install`
+5. 環境変数を設定: `.env.example` を `.env` にコピー
+
+## 開発ワークフロー
+
+### 利用可能なスクリプト
+
+{pyproject.toml scripts から自動生成}
+
+## テスト
+
+`pytest` を実行
+
+## 環境変数
+
+{.env.example から自動生成}
+```
+
+#### C#/.NET
+
+```markdown
+# コントリビューションガイド
+
+## 開発環境のセットアップ
+
+1. リポジトリをクローン
+2. 依存関係を復元: `dotnet restore`
+3. 環境変数を設定: `appsettings.Development.json` または `.env`
+
+## 開発ワークフロー
+
+### 利用可能なコマンド
+
+| コマンド | 説明 |
+|----------|------|
+| `dotnet build` | プロジェクトをビルド |
+| `dotnet test` | テストを実行 |
+| `dotnet run` | アプリケーションを実行 |
+| `dotnet watch run` | ホットリロード付きで実行 |
+
+## テスト
+
+`dotnet test` を実行
+
+## 環境変数
+
+{appsettings.json から自動生成}
 ```
 
 ### RUNBOOK.md テンプレート
@@ -162,7 +274,8 @@ find docs -name "*.md" -mtime +90 -type f
 
 ## 重要な注意事項
 
-1. **信頼できる情報源を優先**: ドキュメントは `package.json` と `.env.example` の内容を反映する
-2. **定期的な同期**: コード変更後はドキュメントも更新する
-3. **古いドキュメントの管理**: 90日以上更新されていないドキュメントはレビュー対象
-4. **差分の確認**: 更新前に必ず差分を確認し、意図しない変更がないか確認する
+1. **信頼できる情報源を優先**: ドキュメントはメタデータファイル（`package.json`, `pyproject.toml`, `*.csproj` など）と `.env.example` の内容を反映する
+2. **言語の自動検出**: プロジェクトの言語を自動検出し、適切なリファレンスを参照する
+3. **定期的な同期**: コード変更後はドキュメントも更新する
+4. **古いドキュメントの管理**: 90日以上更新されていないドキュメントはレビュー対象
+5. **差分の確認**: 更新前に必ず差分を確認し、意図しない変更がないか確認する
