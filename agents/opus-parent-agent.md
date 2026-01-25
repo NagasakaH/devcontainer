@@ -30,8 +30,8 @@ model: claude-opus-4.5
 ## 補足事項
 - 現在の作業ディレクトリの絶対パス: /workspaces/devcontainer
 - DOCS_ROOT: /docs （設定済み）
-- ドキュメント出力先の絶対パス: /docs/main/devcontainer/機能追加タスク/
-- タスク実行履歴: /docs/main/devcontainer/機能追加タスク/タスク実行履歴.md
+- ドキュメント出力先の絶対パス: /docs/main/tasks/devcontainer/機能追加タスク/
+- タスク実行履歴: /docs/main/tasks/devcontainer/機能追加タスク/タスク実行履歴.md
 ```
 
 ### 重要：補足事項の優先使用
@@ -104,7 +104,7 @@ python3 skills/get-docs-root/scripts/get_docs_root.py
    > **補足事項からタスク実行履歴パスを受け取った場合**
    >
    > - その絶対パスをそのまま使用し、子エージェントにも同じパスを伝達する
-   > - 例: `タスク実行履歴: /docs/main/devcontainer/機能追加タスク/タスク実行履歴.md`
+   > - 例: `タスク実行履歴: /docs/main/tasks/devcontainer/機能追加タスク/タスク実行履歴.md`
 
    **優先順位1: 補足事項に情報がある場合（最優先）**
    - 補足事項に「DOCS_ROOT: /docs （設定済み）」等と明記されている場合:
@@ -135,8 +135,8 @@ python3 skills/get-docs-root/scripts/get_docs_root.py
 
 3. **絶対パスの確認**
    - 渡すパスはすべて環境変数展開済みの絶対パス（フルパス）であること
-   - ❌ 悪い例: `$DOCS_ROOT/main/devcontainer/タスク名/1/`
-   - ✅ 良い例: `/docs/main/devcontainer/タスク名/1/`
+   - ❌ 悪い例: `$DOCS_ROOT/main/tasks/devcontainer/タスク名/1/`
+   - ✅ 良い例: `/docs/main/tasks/devcontainer/タスク名/1/`
 
 ### 依頼時に渡す必須情報
 
@@ -148,8 +148,8 @@ python3 skills/get-docs-root/scripts/get_docs_root.py
 2. **ドキュメント出力先の絶対パスまたは未設定の明記**
    - DOCS_ROOTが設定されている場合:
      - 作成済みディレクトリの絶対パスを渡す
-     - 直列タスクの例: `ドキュメント出力先: /docs/main/devcontainer/タスク名/001/`
-     - 並列タスクの例: `ドキュメント出力先: /docs/main/devcontainer/タスク名/002-1/`
+     - 直列タスクの例: `ドキュメント出力先: /docs/main/tasks/devcontainer/タスク名/001/`
+     - 並列タスクの例: `ドキュメント出力先: /docs/main/tasks/devcontainer/タスク名/002-1/`
    - DOCS_ROOTが未設定の場合:
      - 必ず未設定であることを明記する
      - 例: `ドキュメント出力先: DOCS_ROOTは未設定（ドキュメント出力はスキップ）`
@@ -180,19 +180,19 @@ python3 skills/get-docs-root/scripts/get_docs_root.py
 
    **優先順位1: 補足事項にタスク実行履歴パスが含まれている場合（最優先）**
    - その絶対パスをそのまま使用する
-   - 例: `タスク実行履歴: /docs/main/devcontainer/機能追加タスク/タスク実行履歴.md`
+   - 例: `タスク実行履歴: /docs/main/tasks/devcontainer/機能追加タスク/タスク実行履歴.md`
    - 再確認や変更は不要
 
    **優先順位2: 補足事項にドキュメント出力先が含まれている場合**
    - ドキュメント出力先の直下に`タスク実行履歴.md`を配置
-   - 例: ドキュメント出力先が `/docs/main/devcontainer/機能追加タスク/` の場合
-     - タスク実行履歴: `/docs/main/devcontainer/機能追加タスク/タスク実行履歴.md`
+   - 例: ドキュメント出力先が `/docs/main/tasks/devcontainer/機能追加タスク/` の場合
+     - タスク実行履歴: `/docs/main/tasks/devcontainer/機能追加タスク/タスク実行履歴.md`
 
    **優先順位3: 補足事項にDOCS_ROOTのみが含まれている場合**
    - タスクフォルダを作成し、その配下にタスク実行履歴.mdを配置
    - 例: DOCS_ROOT が `/docs`、ブランチが `main`、ワークスペースが `devcontainer`、タスク名が `機能追加` の場合
-     - タスクフォルダ: `/docs/main/devcontainer/機能追加/`
-     - タスク実行履歴: `/docs/main/devcontainer/機能追加/タスク実行履歴.md`
+     - タスクフォルダ: `/docs/main/tasks/devcontainer/機能追加/`
+     - タスク実行履歴: `/docs/main/tasks/devcontainer/機能追加/タスク実行履歴.md`
 
    **補足事項に情報がなく、DOCS_ROOTも未設定の場合**
    - タスク実行履歴の記録はスキップする
@@ -225,19 +225,20 @@ python3 skills/get-docs-root/scripts/get_docs_root.py
 5. **子エージェントへの伝達事項**
    - 子エージェントには、履歴が記録されている場所（タスク実行履歴.mdの絶対パス）を補足情報として伝えること
    - **タスク実行履歴パスはタスクフォルダ配下の絶対パス**で伝える
-   - 例: `タスク実行履歴: /docs/main/devcontainer/タスク名/タスク実行履歴.md`
-   - 例（補足事項から受け取った場合）: `タスク実行履歴: /docs/feature-branch/devcontainer/機能追加/タスク実行履歴.md`
+   - 例: `タスク実行履歴: /docs/main/tasks/devcontainer/タスク名/タスク実行履歴.md`
+   - 例（補足事項から受け取った場合）: `タスク実行履歴: /docs/feature-branch/tasks/devcontainer/機能追加/タスク実行履歴.md`
 
 ## ドキュメント出力ルール
 
 - ドキュメントの出力先パスは `$DOCS_ROOT/` 配下とする（環境変数DOCS_ROOTが設定されていない場合は、ドキュメントの出力を行わない）
-- タスクフォルダパス: `{DOCS_ROOT}/{ブランチ名}/{ワークスペースフォルダ名}/{タスク名}/`
+- タスクフォルダパス: `{DOCS_ROOT}/{ブランチ名}/tasks/{ワークスペースフォルダ名}/{タスク名}/`
   - 第1階層: DOCS_ROOT（例: `/docs`）
   - 第2階層: gitブランチ名（`/` は `-` に置換する）
-  - 第3階層: ワークスペースフォルダ名（現在の作業ディレクトリのフォルダ名）
-  - 第4階層: タスク名
+  - 第3階層: `tasks`（固定）
+  - 第4階層: ワークスペースフォルダ名（現在の作業ディレクトリのフォルダ名）
+  - 第5階層: タスク名
   - 例: ワークスペースが `devcontainer`、ブランチが `feature/doc-update`、タスク名が `機能追加タスク` の場合
-    - フォルダパス: `/docs/feature-doc-update/devcontainer/機能追加タスク/`
+    - フォルダパス: `/docs/feature-doc-update/tasks/devcontainer/機能追加タスク/`
 - ドキュメントはマークダウン形式で出力する
 - 図には可能な限りmermaidを使用する
 - サブエージェントに依頼したタスクと結果は `{タスクフォルダの絶対パス}/タスク実行履歴.md` に追記していく
@@ -254,7 +255,7 @@ python3 skills/get-docs-root/scripts/get_docs_root.py
      - 子エージェントへの依頼時に「DOCS_ROOTは未設定」と明記する
   3. DOCS_ROOTが**設定されている**場合:
      - 取得した値を絶対パスとしてメモする（例: `/docs`）
-     - タスクフォルダの絶対パスを決定する（例: `/docs/main/devcontainer/タスク名/`）
+     - タスクフォルダの絶対パスを決定する（例: `/docs/main/tasks/devcontainer/タスク名/`）
      - `mkdir -p` でタスクフォルダを作成する
 
 - **子エージェントへの依頼前に親エージェントが行うこと:**
@@ -274,10 +275,10 @@ python3 skills/get-docs-root/scripts/get_docs_root.py
     - 並列タスク: ハイフンあり（例: `003-1/`, `003-2/`）
     - ディレクトリ名を見るだけで直列/並列が判別可能
   - 例（絶対パス）:
-    - 直列タスク1: `/docs/feature-doc-update/devcontainer/機能追加タスク/001/`
-    - 直列タスク2: `/docs/feature-doc-update/devcontainer/機能追加タスク/002/`
-    - 並列タスク（2つ同時）: `/docs/feature-doc-update/devcontainer/機能追加タスク/003-1/`, `/docs/feature-doc-update/devcontainer/機能追加タスク/003-2/`
-    - 直列タスク3: `/docs/feature-doc-update/devcontainer/機能追加タスク/004/`
+    - 直列タスク1: `/docs/feature-doc-update/tasks/devcontainer/機能追加タスク/001/`
+    - 直列タスク2: `/docs/feature-doc-update/tasks/devcontainer/機能追加タスク/002/`
+    - 並列タスク（2つ同時）: `/docs/feature-doc-update/tasks/devcontainer/機能追加タスク/003-1/`, `/docs/feature-doc-update/tasks/devcontainer/機能追加タスク/003-2/`
+    - 直列タスク3: `/docs/feature-doc-update/tasks/devcontainer/機能追加タスク/004/`
 
 ### `_category_.yaml` の作成（必須）
 
@@ -315,11 +316,11 @@ date +%s
 
 ```bash
 # タスクフォルダ作成
-mkdir -p /docs/main/devcontainer/機能追加タスク/
+mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/
 
 # _category_.yaml作成（タイムスタンプを取得して埋め込む）
 TIMESTAMP=$(date +%s)
-cat > /docs/main/devcontainer/機能追加タスク/_category_.yaml << EOF
+cat > /docs/main/tasks/devcontainer/機能追加タスク/_category_.yaml << EOF
 label: 機能追加タスク
 position: $TIMESTAMP
 EOF
@@ -443,39 +444,39 @@ date: 2025-01-15T10:30:45+09:00
 #    DOCS_ROOT = /docs
 
 # 2. タスクフォルダを作成（ブランチ名: main、ワークスペース: devcontainer）
-mkdir -p /docs/main/devcontainer/機能追加タスク/
+mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/
 
 # 3. _category_.yaml を作成
 TIMESTAMP=$(date +%s)
-cat > /docs/main/devcontainer/機能追加タスク/_category_.yaml << EOF
+cat > /docs/main/tasks/devcontainer/機能追加タスク/_category_.yaml << EOF
 label: 機能追加タスク
 position: $TIMESTAMP
 EOF
 
 # === 例1: 直列タスクの場合 ===
 # 4a. 子エージェント用ディレクトリを事前作成（直列タスク）
-mkdir -p /docs/main/devcontainer/機能追加タスク/001/
+mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/001/
 
 # 5a. 子エージェントに以下の情報を渡して依頼
 #    - 作業ディレクトリ: /workspaces/devcontainer
-#    - ドキュメント出力先: /docs/main/devcontainer/機能追加タスク/001/
+#    - ドキュメント出力先: /docs/main/tasks/devcontainer/機能追加タスク/001/
 #    - DOCS_ROOT: /docs
 
 # === 例2: 並列タスク（2つ同時）の場合 ===
 # 4b. 子エージェント用ディレクトリを事前作成（並列タスク）
 #     同じ親タスク番号（002）を共有し、サブ番号で区別
-mkdir -p /docs/main/devcontainer/機能追加タスク/002-1/
-mkdir -p /docs/main/devcontainer/機能追加タスク/002-2/
+mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/002-1/
+mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/002-2/
 
 # 5b. 子エージェントに以下の情報を渡して依頼
 #    - 作業ディレクトリ: /workspaces/devcontainer
-#    - ドキュメント出力先（タスク1）: /docs/main/devcontainer/機能追加タスク/002-1/
-#    - ドキュメント出力先（タスク2）: /docs/main/devcontainer/機能追加タスク/002-2/
+#    - ドキュメント出力先（タスク1）: /docs/main/tasks/devcontainer/機能追加タスク/002-1/
+#    - ドキュメント出力先（タスク2）: /docs/main/tasks/devcontainer/機能追加タスク/002-2/
 #    - DOCS_ROOT: /docs
 
 # === 例3: 続いて直列タスクを実行する場合 ===
 # 次の直列タスクは親タスク番号をインクリメント（003）
-mkdir -p /docs/main/devcontainer/機能追加タスク/003/
+mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/003/
 ```
 
 #### 補足事項にDOCS_ROOT情報がなく、環境変数が設定されている場合
@@ -486,26 +487,26 @@ mkdir -p /docs/main/devcontainer/機能追加タスク/003/
 python3 skills/get-docs-root/scripts/get_docs_root.py  # 出力例: /docs
 
 # 2. タスクフォルダを作成（ブランチ名: main、ワークスペース: devcontainer）
-mkdir -p /docs/main/devcontainer/機能追加タスク/
+mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/
 
 # 3. _category_.yaml を作成
 TIMESTAMP=$(date +%s)
-cat > /docs/main/devcontainer/機能追加タスク/_category_.yaml << EOF
+cat > /docs/main/tasks/devcontainer/機能追加タスク/_category_.yaml << EOF
 label: 機能追加タスク
 position: $TIMESTAMP
 EOF
 
 # === 例1: 直列タスク2つを順番に実行する場合 ===
 # 最初の直列タスク
-mkdir -p /docs/main/devcontainer/機能追加タスク/001/
+mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/001/
 # → タスク完了後、次の直列タスク
-mkdir -p /docs/main/devcontainer/機能追加タスク/002/
+mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/002/
 
 # === 例2: 並列タスク（3つ同時）の場合 ===
 # 同じ親タスク番号（003）を共有し、サブ番号で区別
-mkdir -p /docs/main/devcontainer/機能追加タスク/003-1/
-mkdir -p /docs/main/devcontainer/機能追加タスク/003-2/
-mkdir -p /docs/main/devcontainer/機能追加タスク/003-3/
+mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/003-1/
+mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/003-2/
+mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/003-3/
 
 # 4. 子エージェントに以下の情報を渡して依頼
 #    - 作業ディレクトリ: /workspaces/devcontainer
