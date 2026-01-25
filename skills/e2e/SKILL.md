@@ -1,0 +1,233 @@
+---
+name: e2e
+description: Playwrightを使用したE2Eテストの生成・実行ガイド。テストジャーニーの作成、テスト実行、スクリーンショット/動画/トレースの取得、アーティファクトのアップロードをサポート。「E2Eテスト」「エンドツーエンドテスト」「Playwrightテスト」「ユーザージャーニーのテスト」などのフレーズで発動。
+---
+
+# E2Eテスト生成（E2E）
+
+Playwrightを使用してエンドツーエンドテストを生成・保守・実行するためのガイド。
+
+## このスキルの目的
+
+1. **テストジャーニーの生成** - ユーザーフローのPlaywrightテストを作成
+2. **E2Eテストの実行** - 複数ブラウザでテストを実行
+3. **アーティファクトの取得** - 失敗時のスクリーンショット、動画、トレースを保存
+4. **結果のアップロード** - HTMLレポートとJUnit XMLを生成
+5. **不安定なテストの検出** - 不安定なテストを特定・隔離
+
+## 使用するタイミング
+
+以下の場合に使用：
+- 重要なユーザージャーニーのテスト（ログイン、決済、購入フロー等）
+- 複数ステップのフローがエンドツーエンドで動作することの検証
+- UIインタラクションとナビゲーションのテスト
+- フロントエンドとバックエンドの統合検証
+- 本番デプロイ前の品質確認
+
+## ワークフロー
+
+### ステップ1: ユーザーフローの分析
+
+リクエストを分析し、テストシナリオを特定する。
+
+- ユーザージャーニーの流れ
+- テストで検証すべき項目
+- 必要なテストケース数
+
+### ステップ2: Playwrightテストの生成
+
+Page Object Modelパターンを使用してテストコードを生成する。
+
+テストには以下を含める：
+- ナビゲーション
+- ユーザーアクション
+- アサーション（検証）
+- スクリーンショット取得
+
+### ステップ3: テストの実行
+
+複数ブラウザでテストを実行する。
+
+対象ブラウザ：
+- Chromium（デスクトップChrome）
+- Firefox（デスクトップ）
+- WebKit（デスクトップSafari）
+- Mobile Chrome（オプション）
+
+### ステップ4: 結果の報告
+
+テスト結果とアーティファクトを報告する。
+
+- 成功/失敗の状態
+- 実行時間
+- 生成されたアーティファクト
+- 推奨事項（必要に応じて）
+
+## テストコードテンプレート
+
+```typescript
+// tests/e2e/{機能名}/{テスト名}.spec.ts
+import { test, expect } from '@playwright/test'
+import { {ページ名}Page } from '../../pages/{ページ名}Page'
+
+test.describe('{テストスイート名}', () => {
+  test('{テストケース名}', async ({ page }) => {
+    // 1. ページへ移動
+    const targetPage = new {ページ名}Page(page)
+    await targetPage.goto()
+
+    // 2. ページ読み込みを検証
+    await expect(page).toHaveTitle(/{期待するタイトル}/)
+    await expect(page.locator('h1')).toContainText('{期待するテキスト}')
+
+    // 3. ユーザーアクションを実行
+    await targetPage.{アクションメソッド}('{入力値}')
+
+    // 4. APIレスポンスを待機
+    await page.waitForResponse(resp =>
+      resp.url().includes('{APIエンドポイント}') && resp.status() === 200
+    )
+
+    // 5. 結果を検証
+    await expect(page.locator('{セレクタ}')).toBeVisible()
+
+    // 6. スクリーンショットを取得
+    await page.screenshot({ path: 'artifacts/{スクリーンショット名}.png' })
+  })
+})
+```
+
+## Page Objectテンプレート
+
+```typescript
+// tests/pages/{ページ名}Page.ts
+import { Page, Locator } from '@playwright/test'
+
+export class {ページ名}Page {
+  readonly page: Page
+  readonly {要素名}: Locator
+
+  constructor(page: Page) {
+    this.page = page
+    this.{要素名} = page.locator('[data-testid="{テストID}"]')
+  }
+
+  async goto() {
+    await this.page.goto('{URL}')
+  }
+
+  async {アクションメソッド}(input: string) {
+    await this.{要素名}.fill(input)
+    await this.{要素名}.press('Enter')
+  }
+}
+```
+
+## テストアーティファクト
+
+テスト実行時に以下のアーティファクトを取得：
+
+**全テストで取得：**
+- HTMLレポート（タイムラインと結果）
+- JUnit XML（CI統合用）
+
+**失敗時のみ取得：**
+- 失敗状態のスクリーンショット
+- テストの動画記録
+- デバッグ用トレースファイル（ステップバイステップ再生）
+- ネットワークログ
+- コンソールログ
+
+## クイックコマンド
+
+```bash
+# 全E2Eテストを実行
+npx playwright test
+
+# 特定のテストファイルを実行
+npx playwright test tests/e2e/{機能名}/{テスト名}.spec.ts
+
+# ヘッドモードで実行（ブラウザを表示）
+npx playwright test --headed
+
+# デバッグモードで実行
+npx playwright test --debug
+
+# テストコードを生成
+npx playwright codegen http://localhost:3000
+
+# レポートを表示
+npx playwright show-report
+
+# トレースファイルを表示
+npx playwright show-trace artifacts/trace-{id}.zip
+```
+
+## 不安定なテストの検出
+
+テストが断続的に失敗する場合：
+
+1. **原因の特定**
+   - タイムアウト問題
+   - レース条件
+   - アニメーションによる要素の非表示
+
+2. **推奨される修正**
+   - 明示的な待機を追加: `await page.waitForSelector('{セレクタ}')`
+   - タイムアウトを増加: `{ timeout: 10000 }`
+   - コンポーネント内のレース条件を確認
+   - アニメーションによる要素非表示を検証
+
+3. **隔離の推奨**
+   - 修正まで `test.fixme()` でマーク
+
+## ベストプラクティス
+
+**推奨事項：**
+- Page Object Modelを使用して保守性を向上
+- セレクタには `data-testid` 属性を使用
+- 任意の待ち時間ではなくAPIレスポンスを待機
+- 重要なユーザージャーニーをエンドツーエンドでテスト
+- mainへのマージ前にテストを実行
+- 失敗時はアーティファクトを確認
+
+**避けるべきこと：**
+- 脆いセレクタの使用（CSSクラスは変更される可能性がある）
+- 実装の詳細をテスト
+- 本番環境でテストを実行
+- 不安定なテストを無視
+- 失敗時のアーティファクト確認をスキップ
+- 全てのエッジケースをE2Eでテスト（ユニットテストを使用）
+
+## CI/CD統合
+
+```yaml
+# .github/workflows/e2e.yml
+- name: Install Playwright
+  run: npx playwright install --with-deps
+
+- name: Run E2E tests
+  run: npx playwright test
+
+- name: Upload artifacts
+  if: always()
+  uses: actions/upload-artifact@v3
+  with:
+    name: playwright-report
+    path: playwright-report/
+```
+
+## 重要な注意事項
+
+**本番環境での注意点：**
+- 金銭が関わるE2Eテストはテストネット/ステージング環境のみで実行
+- 本番環境で決済・取引テストを実行しない
+- 金融関連テストには `test.skip(process.env.NODE_ENV === 'production')` を設定
+- テスト用のウォレット/アカウントのみを使用
+
+## 他のスキルとの連携
+
+- **plan**: テストすべき重要なジャーニーを特定
+- **tdd**: ユニットテスト用（より高速で詳細）
+- **e2e**: 統合テストとユーザージャーニーテスト用
+- **code-review**: テスト品質の検証
