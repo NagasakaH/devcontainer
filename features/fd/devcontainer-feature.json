@@ -1,0 +1,13 @@
+{
+  "id": "fd",
+  "version": "1.0.0",
+  "name": "fd",
+  "description": "Installs fd - a simple, fast and user-friendly alternative to find",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "10.2.0",
+      "description": "Version of fd to install"
+    }
+  }
+}

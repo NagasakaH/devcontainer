@@ -7,3 +7,6 @@ agents-docs/*
 agents-docs-preview/node_modules/
 agents-docs-preview/build/
 agents-docs-preview/.docusaurus/
+
+# シークレット用
+.env
