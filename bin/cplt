@@ -5,6 +5,7 @@
 # オプション:
 #   -r          セッションを再開（--resumeに変換）
 #   -n, --no-split  tmux pane分割を抑制
+#   --debug     デバッグモード（ログ出力を有効化）
 #
 # tmux環境での動作:
 #   - pane数が1の場合、自動的に左右分割（copilot: 30%, 作業用: 70%）
@@ -22,9 +23,10 @@ restore_window_name() {
     fi
 }
 
-# オプション解析: -r (resume), -n/--no-split (pane分割抑制)
+# オプション解析: -r (resume), -n/--no-split (pane分割抑制), --debug (デバッグモード)
 RESUME_FLAG=""
 NO_SPLIT_FLAG=""
+DEBUG_FLAG=""
 OTHER_ARGS=()
 
 for arg in "$@"; do
@@ -34,6 +36,9 @@ for arg in "$@"; do
         ;;
     -n | --no-split)
         NO_SPLIT_FLAG="1"
+        ;;
+    --debug)
+        DEBUG_FLAG="1"
         ;;
     *)
         OTHER_ARGS+=("$arg")
@@ -60,5 +65,11 @@ if [[ -n "$TMUX" ]]; then
     trap restore_window_name EXIT INT TERM
 fi
 
-mkdir -p /tmp/logs
-copilot --allow-all --agent call-opus-agent $RESUME_FLAG "${OTHER_ARGS[@]}" --log-level debug --log-dir /tmp/logs
+# デバッグモードの場合のみログ設定を追加
+DEBUG_OPTS=()
+if [[ -n "$DEBUG_FLAG" ]]; then
+    mkdir -p /tmp/logs
+    DEBUG_OPTS+=(--log-level debug --log-dir /tmp/logs)
+fi
+
+copilot --allow-all --agent call-opus-agent $RESUME_FLAG "${OTHER_ARGS[@]}" "${DEBUG_OPTS[@]}"
