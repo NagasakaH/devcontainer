@@ -12,7 +12,7 @@ description: Retrieve the value of the DOCS_ROOT environment variable. Use this 
 To retrieve the value of the DOCS_ROOT environment variable, execute the following script:
 
 ```bash
-python3 scripts/get_docs_root.py
+bash scripts/get_docs_root.sh
 ```
 
 - If DOCS_ROOT is set, the script will print its value.
