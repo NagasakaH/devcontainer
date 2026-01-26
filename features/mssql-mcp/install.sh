@@ -59,21 +59,15 @@ echo "[2/5] Setting up MssqlMcp source code..."
 TEMP_DIR=$(mktemp -d)
 MSSQL_MCP_SRC="${TEMP_DIR}/MssqlMcp"
 
-# Check if source exists locally (for development/testing)
-if [ -d "/workspaces/devcontainer/SQL-AI-samples/MssqlMcp/dotnet/MssqlMcp" ]; then
-    echo "Using local source from /workspaces/devcontainer/SQL-AI-samples/MssqlMcp/dotnet/MssqlMcp"
-    cp -r /workspaces/devcontainer/SQL-AI-samples/MssqlMcp/dotnet/MssqlMcp "${MSSQL_MCP_SRC}"
-else
-    echo "Cloning MssqlMcp from GitHub..."
-    # Clone only the specific directory needed
-    cd "${TEMP_DIR}"
-    git clone --depth 1 --filter=blob:none --sparse https://github.com/Azure-Samples/SQL-AI-samples.git
-    cd SQL-AI-samples
-    git sparse-checkout set MssqlMcp/dotnet/MssqlMcp
-    mv MssqlMcp/dotnet/MssqlMcp "${MSSQL_MCP_SRC}"
-    cd "${TEMP_DIR}"
-    rm -rf SQL-AI-samples
-fi
+echo "Cloning MssqlMcp from GitHub..."
+# Clone only the specific directory needed
+cd "${TEMP_DIR}"
+git clone --depth 1 --filter=blob:none --sparse https://github.com/Azure-Samples/SQL-AI-samples.git
+cd SQL-AI-samples
+git sparse-checkout set MssqlMcp/dotnet/MssqlMcp
+mv MssqlMcp/dotnet/MssqlMcp "${MSSQL_MCP_SRC}"
+cd "${TEMP_DIR}"
+rm -rf SQL-AI-samples
 
 # -----------------------------------------------------------------------------
 # Build MssqlMcp
