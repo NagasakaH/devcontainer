@@ -1,7 +1,7 @@
 ---
 name: call-opus-agent
 description: opusをサブエージェント呼び出して作業を依頼します
-tools: ["agent", "bash"]
+tools: ["agent", "bash", "skill"]
 agent: gpt-4.1
 ---
 
@@ -23,9 +23,8 @@ opus-parent-agentを呼び出す**前に**、以下の環境情報を収集す�
 
 2. **DOCS_ROOT環境変数の値**（必須）
    - `get-docs-root` スキルを使用して取得する
-   - スキル内のスクリプトを実行: `python3 <スキルディレクトリ>/get-docs-root/scripts/get_docs_root.py`
-   - 値が出力された場合: 「設定済み」としてその値を記録
-   - 空行または何も出力されない場合: 「未設定」と記録
+   - 値が取得できた場合: 「設定済み」としてその値を記録
+   - 値が取得できない場合: 「未設定」と記録
 
 3. **Gitブランチ名**（必須）
 
