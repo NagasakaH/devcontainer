@@ -17,9 +17,9 @@ SCRIPT_PATH="$(readlink -f "$0")"
 ORIGINAL_WINDOW_NAME=""
 
 restore_window_name() {
-	if [[ -n "$TMUX" && -n "$ORIGINAL_WINDOW_NAME" ]]; then
-		tmux rename-window "$ORIGINAL_WINDOW_NAME"
-	fi
+    if [[ -n "$TMUX" && -n "$ORIGINAL_WINDOW_NAME" ]]; then
+        tmux rename-window "$ORIGINAL_WINDOW_NAME"
+    fi
 }
 
 # オプション解析: -r (resume), -n/--no-split (pane分割抑制)
@@ -28,36 +28,37 @@ NO_SPLIT_FLAG=""
 OTHER_ARGS=()
 
 for arg in "$@"; do
-	case "$arg" in
-	-r)
-		RESUME_FLAG="--resume"
-		;;
-	-n | --no-split)
-		NO_SPLIT_FLAG="1"
-		;;
-	*)
-		OTHER_ARGS+=("$arg")
-		;;
-	esac
+    case "$arg" in
+    -r)
+        RESUME_FLAG="--resume"
+        ;;
+    -n | --no-split)
+        NO_SPLIT_FLAG="1"
+        ;;
+    *)
+        OTHER_ARGS+=("$arg")
+        ;;
+    esac
 done
 
 # tmux環境でのpane分割処理
 if [[ -n "$TMUX" ]]; then
-	PANE_COUNT=$(tmux list-panes | wc -l)
+    PANE_COUNT=$(tmux list-panes | wc -l)
 
-	# pane数が1かつno-splitオプションが指定されていない場合、paneを分割
-	if [[ "$PANE_COUNT" -eq 1 && -z "$NO_SPLIT_FLAG" ]]; then
-		# 縦分割（左右分割）してcopilotを新しいpane（右側）で起動
-		# -l 40% でcopilot側を40%、元pane側を60%に
-		# --no-split付きで自身を再帰呼び出し（無限ループ防止）
-		tmux split-window -h -l 40% "$SCRIPT_PATH" --no-split "$@"
-		exit 0
-	fi
+    # pane数が1かつno-splitオプションが指定されていない場合、paneを分割
+    if [[ "$PANE_COUNT" -eq 1 && -z "$NO_SPLIT_FLAG" ]]; then
+        # 縦分割（左右分割）してcopilotを新しいpane（右側）で起動
+        # -l 40% でcopilot側を40%、元pane側を60%に
+        # --no-split付きで自身を再帰呼び出し（無限ループ防止）
+        tmux split-window -h -l 40% "$SCRIPT_PATH" --no-split "$@"
+        exit 0
+    fi
 
-	# paneが既に分割されている場合、または--no-splitの場合は従来通りの動作
-	ORIGINAL_WINDOW_NAME=$(tmux display-message -p '#W')
-	tmux rename-window "copilot"
-	trap restore_window_name EXIT INT TERM
+    # paneが既に分割されている場合、または--no-splitの場合は従来通りの動作
+    ORIGINAL_WINDOW_NAME=$(tmux display-message -p '#W')
+    tmux rename-window "copilot"
+    trap restore_window_name EXIT INT TERM
 fi
 
-copilot --allow-all --agent call-opus-agent $RESUME_FLAG "${OTHER_ARGS[@]}"
+mkdir -p /tmp/logs
+copilot --allow-all --agent call-opus-agent $RESUME_FLAG "${OTHER_ARGS[@]}" --log-level debug --log-dir /tmp/logs
