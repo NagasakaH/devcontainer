@@ -51,7 +51,7 @@ model: claude-opus-4.5
 補足事項にDOCS_ROOT情報がない場合のみ、`get-docs-root` スキルを使用して確認：
 
 ```bash
-python3 skills/get-docs-root/scripts/get_docs_root.py
+skills/get-docs-root/scripts/get_docs_root.sh
 ```
 
 - **値が出力された場合**: 展開済みの絶対パスを記録（例: `/docs`）
@@ -222,7 +222,7 @@ python3 skills/get-docs-root/scripts/get_docs_root.py
 - **結果サマリー**: (完了後に追記)
 ```
 
-5. **子エージェントへの伝達事項**
+1. **子エージェントへの伝達事項**
    - 子エージェントには、履歴が記録されている場所（タスク実行履歴.mdの絶対パス）を補足情報として伝えること
    - **タスク実行履歴パスはタスクフォルダ配下の絶対パス**で伝える
    - 例: `タスク実行履歴: /docs/main/tasks/devcontainer/タスク名/タスク実行履歴.md`
