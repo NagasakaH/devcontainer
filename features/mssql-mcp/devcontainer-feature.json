@@ -1,0 +1,23 @@
+{
+  "id": "mssql-mcp",
+  "version": "1.0.0",
+  "name": "MSSQL MCP Server",
+  "description": "Installs MSSQL MCP (Model Context Protocol) Server for AI-powered SQL Server interaction",
+  "documentationURL": "https://github.com/Azure-Samples/SQL-AI-samples/tree/main/MssqlMcp",
+  "options": {
+    "connectionString": {
+      "type": "string",
+      "default": "",
+      "description": "Default SQL Server connection string (can also be set via MSSQL_CONNECTION_STRING environment variable)"
+    },
+    "installPath": {
+      "type": "string",
+      "default": "/usr/local/mssql-mcp",
+      "description": "Installation path for MssqlMcp binaries"
+    }
+  },
+  "installsAfter": ["ghcr.io/devcontainers/features/dotnet"],
+  "containerEnv": {
+    "PATH": "/usr/local/mssql-mcp:${PATH}"
+  }
+}
