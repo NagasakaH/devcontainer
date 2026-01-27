@@ -484,7 +484,7 @@ mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/003/
 ```bash
 # 補足事項に情報がないため、get-docs-rootスキルで確認
 # 1. DOCS_ROOTを確認
-python3 skills/get-docs-root/scripts/get_docs_root.py  # 出力例: /docs
+skills/get-docs-root/scripts/get_docs_root.sh  # 出力例: /docs
 
 # 2. タスクフォルダを作成（ブランチ名: main、ワークスペース: devcontainer）
 mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/
