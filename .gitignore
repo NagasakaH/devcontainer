@@ -10,3 +10,67 @@ agents-docs-preview/.docusaurus/
 
 # シークレット用
 .env
+
+# ====================
+# Python
+# ====================
+
+# バイトコンパイル / 最適化ファイル
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C拡張
+*.so
+
+# パッケージング / ディストリビューション
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.manifest
+*.spec
+pip-wheel-metadata/
+wheels/
+MANIFEST
+
+# 仮想環境
+venv/
+.venv/
+env/
+ENV/
+
+# テスト / カバレッジ
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+
+# 型チェック / Linter キャッシュ
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.pytype/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# pyenv
+.python-version
+
+# ====================
+# IDE / エディタ
+# ====================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
