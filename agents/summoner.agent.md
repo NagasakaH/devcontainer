@@ -34,11 +34,11 @@ flowchart TD
 
 キュー名は `orchestration-init --summoner-mode` が生成するものを使用します。
 
-| キュー名 | 用途 | 操作 |
-|----------|------|------|
-| `summoner:{session_id}:tasks:{N}` | moogle→chocobo指示キュー（chocobo毎に個別） | moogleがRPUSH、該当chocoboのみがBLPOP |
-| `summoner:{session_id}:reports` | chocobo→moogle報告キュー（全chocobo共有） | 複数chocoboがRPUSH、moogleがBLPOP |
-| `summoner:{session_id}:monitor` | モニタリングチャンネル（Pub/Sub） | メッセージ送信時にPUBLISH（オプショナル） |
+| キュー名                          | 用途                                        | 操作                                      |
+| --------------------------------- | ------------------------------------------- | ----------------------------------------- |
+| `summoner:{session_id}:tasks:{N}` | moogle→chocobo指示キュー（chocobo毎に個別） | moogleがRPUSH、該当chocoboのみがBLPOP     |
+| `summoner:{session_id}:reports`   | chocobo→moogle報告キュー（全chocobo共有）   | 複数chocoboがRPUSH、moogleがBLPOP         |
+| `summoner:{session_id}:monitor`   | モニタリングチャンネル（Pub/Sub）           | メッセージ送信時にPUBLISH（オプショナル） |
 
 ### モニタリングチャンネル
 
@@ -91,6 +91,7 @@ cat /tmp/orch_config.json
 ```
 
 出力例（`--summoner-mode`使用時）：
+
 ```json
 {
   "session_id": "abc12345",
@@ -114,19 +115,23 @@ cat /tmp/orch_config.json
 ## 作業計画
 
 ### 概要
+
 {タスクの概要}
 
 ### 環境情報
+
 - DOCS_ROOT: {収集した値}
 - 作業ディレクトリ: {収集した値}
 - ブランチ: {収集した値}
 
 ### セッション情報
+
 - セッションID: {orchestration-initで生成したUUID}
 - 報告キュー: summoner:{session_id}:reports
 - モニタリングチャンネル: summoner:{session_id}:monitor
 
 ### chocobo構成
+
 - chocobo起動数: {推奨数}
 - 指示キューリスト:
   - chocobo-1: summoner:{session_id}:tasks:1
@@ -134,9 +139,10 @@ cat /tmp/orch_config.json
   - ...
 
 ### タスク分解
+
 1. {サブタスク1}
 2. {サブタスク2}
-...
+   ...
 ```
 
 ### Step 4: moogleとchocoboの並列起動
@@ -145,7 +151,7 @@ cat /tmp/orch_config.json
 
 #### moogleへの伝達内容
 
-```
+````
 ## moogleへの指示
 
 あなたは作業管理者です。以下の作業計画に基づいて、chocoboに指示を出してください。
@@ -174,17 +180,19 @@ python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:{session_i
 
 # chocobo-2に指示を送る場合
 python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:{session_id}:monitor" "summoner:{session_id}:tasks:2" "<JSON形式の指示>"
-```
+````
 
 > **注意**: `--channel` オプションを指定すると、RPUSHと同時にモニタリングチャンネルへPUBLISHされます。
 > モニタリングが不要な場合は `--channel` を省略できます。
 
 **報告を受信（BLPOP）:**
+
 ```bash
 python skills/redis-blpop-receiver/scripts/blpop_receiver.py summoner:{session_id}:reports --timeout 300
 ```
 
 chocoboからの報告を待ち、全タスク完了後に最終報告をまとめてください。
+
 ```
 
 #### chocoboへの伝達内容（各インスタンスに個別の内容）
@@ -192,14 +200,17 @@ chocoboからの報告を待ち、全タスク完了後に最終報告をまと�
 各chocoboには、自分専用のchocobo_idと指示キューを伝えます：
 
 ```
+
 ## chocoboへの指示
 
 あなたは作業実行者です。Redisキューから指示を受け取り、作業を実行してください。
 
 ### あなたの識別情報
+
 - chocobo_id: {1, 2 など、このchocobo専用のID}
 
 ### Redis連携情報
+
 - セッションID: {session_id}
 - 自分専用の指示キュー: summoner:{session_id}:tasks:{chocobo_id}
 - 報告キュー（共有）: summoner:{session_id}:reports
@@ -211,11 +222,13 @@ chocoboからの報告を待ち、全タスク完了後に最終報告をまと�
 ### Redisスキルの使い方
 
 **自分専用の指示キューから受信（BLPOP）:**
+
 ```bash
 python skills/redis-blpop-receiver/scripts/blpop_receiver.py summoner:{session_id}:tasks:{chocobo_id} --timeout 300
 ```
 
 **報告を送信（RPUSH + モニタリング）:**
+
 ```bash
 # モニタリングチャンネルへも同時publish
 python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:{session_id}:monitor" summoner:{session_id}:reports "<JSON形式の報告>"
@@ -225,6 +238,7 @@ python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:{session_i
 
 指示が来るまで待機し、指示を受け取ったら作業を実行して報告を送信してください。
 終了指示（type: "shutdown"）を受け取ったら終了してください。
+
 ```
 
 ## サブエージェント呼び出し時の注意
@@ -232,13 +246,17 @@ python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:{session_i
 moogleとchocoboの両方を呼び出す際は、**必ず `model: claude-opus-4.5` を指定**してください：
 
 ```
+
 agent: moogle-agent
 model: claude-opus-4.5
+
 ```
 
 ```
+
 agent: chocobo-agent
 model: claude-opus-4.5
+
 ```
 
 ## 重要な注意事項
@@ -253,3 +271,4 @@ model: claude-opus-4.5
 - **moogleにはchocobo_idリストと各専用キュー名を伝える** - 特定chocoboへの指示送信に必要
 - **各chocoboには自分専用のchocobo_idと指示キュー名を伝える** - 自分のキューのみ監視させる
 - **環境情報は必ず収集する** - DOCS_ROOT未設定の場合はその旨をmoogleに伝える
+```

@@ -6,13 +6,23 @@ from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.message import Message as TextualMessage
 from textual.reactive import reactive
-from textual.widgets import Footer, Header, Label, ListItem, ListView, Static
+from textual.screen import ModalScreen
+from textual.widgets import (
+    Button,
+    Footer,
+    Header,
+    Input,
+    Label,
+    ListItem,
+    ListView,
+    Static,
+)
 
 try:
-    from .channel import Channel, ChannelManager, ChannelStatus
+    from .channel import Channel, ChannelManager, ChannelStatus, ChannelType
     from .message import Message
 except ImportError:
-    from channel import Channel, ChannelManager, ChannelStatus
+    from channel import Channel, ChannelManager, ChannelStatus, ChannelType
     from message import Message
 
 
@@ -27,7 +37,8 @@ class ChannelListItem(ListItem):
     def compose(self) -> ComposeResult:
         """Compose the channel list item."""
         status_icon = self._get_status_icon()
-        yield Label(f"{status_icon} {self.channel.name}", id="channel-label")
+        type_icon = self._get_type_icon()
+        yield Label(f"{status_icon}{type_icon} {self.channel.name}", id="channel-label")
 
     def _get_status_icon(self) -> str:
         """Get status icon based on channel status."""
@@ -39,12 +50,19 @@ class ChannelListItem(ListItem):
         }
         return icons.get(self.channel.status, "⚪")
 
+    def _get_type_icon(self) -> str:
+        """Get type icon based on channel type."""
+        if self.channel.channel_type == ChannelType.REDIS_PUBSUB:
+            return "📡"
+        return "💬"
+
     def update_display(self) -> None:
         """Update the display to reflect current state."""
         label = self.query_one("#channel-label", Label)
         status_icon = self._get_status_icon()
+        type_icon = self._get_type_icon()
         msg_count = self.channel.message_count()
-        label.update(f"{status_icon} {self.channel.name} ({msg_count})")
+        label.update(f"{status_icon}{type_icon} {self.channel.name} ({msg_count})")
 
 
 class MessageDisplay(Static):
@@ -106,6 +124,119 @@ class DeleteChannelRequested(TextualMessage):
     """Message sent when channel deletion is requested."""
 
     pass
+
+
+class RedisChannelDialog(ModalScreen[dict | None]):
+    """Modal dialog for creating a Redis Pub/Sub channel."""
+
+    CSS = """
+    RedisChannelDialog {
+        align: center middle;
+    }
+
+    #dialog-container {
+        width: 60;
+        height: auto;
+        border: thick $primary;
+        background: $surface;
+        padding: 1 2;
+    }
+
+    #dialog-title {
+        text-align: center;
+        text-style: bold;
+        padding-bottom: 1;
+    }
+
+    .dialog-label {
+        padding-top: 1;
+    }
+
+    .dialog-input {
+        margin-bottom: 1;
+    }
+
+    #button-row {
+        height: 3;
+        align: center middle;
+        padding-top: 1;
+    }
+
+    #button-row Button {
+        margin: 0 1;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        """Compose the dialog."""
+        with Container(id="dialog-container"):
+            yield Label("📡 Create Redis Channel", id="dialog-title")
+
+            yield Label("Redis Channel Name:", classes="dialog-label")
+            yield Input(
+                placeholder="e.g., summoner:abc123:monitor",
+                id="channel-name-input",
+                classes="dialog-input",
+            )
+
+            yield Label("Host:", classes="dialog-label")
+            yield Input(
+                value="redis",
+                id="host-input",
+                classes="dialog-input",
+            )
+
+            yield Label("Port:", classes="dialog-label")
+            yield Input(
+                value="6379",
+                id="port-input",
+                classes="dialog-input",
+            )
+
+            with Horizontal(id="button-row"):
+                yield Button("Create", variant="primary", id="create-btn")
+                yield Button("Cancel", variant="default", id="cancel-btn")
+
+    def on_mount(self) -> None:
+        """Focus the channel name input on mount."""
+        self.query_one("#channel-name-input", Input).focus()
+
+    @on(Button.Pressed, "#create-btn")
+    def on_create(self) -> None:
+        """Handle create button press."""
+        channel_name = self.query_one("#channel-name-input", Input).value.strip()
+        host = self.query_one("#host-input", Input).value.strip()
+        port_str = self.query_one("#port-input", Input).value.strip()
+
+        if not channel_name:
+            self.notify("Channel name is required!", severity="error")
+            return
+
+        try:
+            port = int(port_str)
+        except ValueError:
+            self.notify("Port must be a number!", severity="error")
+            return
+
+        self.dismiss({"channel_name": channel_name, "host": host, "port": port})
+
+    @on(Button.Pressed, "#cancel-btn")
+    def on_cancel(self) -> None:
+        """Handle cancel button press."""
+        self.dismiss(None)
+
+    def action_cancel(self) -> None:
+        """Cancel action (escape key)."""
+        self.dismiss(None)
+
+    @on(Input.Submitted)
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle Enter key in inputs."""
+        self.on_create()
 
 
 class ChannelViewerApp(App):
@@ -182,10 +313,11 @@ class ChannelViewerApp(App):
     """
 
     BINDINGS = [
-        Binding("n", "new_channel", "New Channel"),
+        Binding("n", "new_channel", "New Sim Channel"),
+        Binding("r", "new_redis_channel", "New Redis Channel"),
         Binding("d", "delete_channel", "Delete Channel"),
         Binding("q", "quit", "Quit"),
-        Binding("r", "refresh", "Refresh"),
+        Binding("f", "refresh", "Refresh"),
     ]
 
     def __init__(self) -> None:
@@ -301,10 +433,26 @@ class ChannelViewerApp(App):
             self._refresh_messages()
 
     def action_new_channel(self) -> None:
-        """Create a new channel."""
+        """Create a new simulation channel."""
         self._manager.create_channel()
         self._refresh_channel_list()
-        self.notify("New channel created!")
+        self.notify("New simulation channel created!")
+
+    def action_new_redis_channel(self) -> None:
+        """Open dialog to create a new Redis channel."""
+
+        def handle_result(result: dict | None) -> None:
+            """Handle dialog result."""
+            if result:
+                self._manager.create_redis_channel(
+                    redis_channel_name=result["channel_name"],
+                    redis_host=result["host"],
+                    redis_port=result["port"],
+                )
+                self._refresh_channel_list()
+                self.notify(f"Redis channel '{result['channel_name']}' created!")
+
+        self.push_screen(RedisChannelDialog(), handle_result)
 
     def action_delete_channel(self) -> None:
         """Delete the selected channel."""

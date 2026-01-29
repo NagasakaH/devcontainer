@@ -88,6 +88,115 @@ This allows subscribers to know:
 
 **Note**: If PUBLISH fails, RPUSH is still considered successful (a warning is displayed).
 
+## `--channel` オプション詳細
+
+`--channel` オプションは、メッセージをRedisリストに追加すると同時に、指定したPub/Subチャンネルへ通知を送信するためのものです。
+
+### 基本的な使い方
+
+```bash
+python scripts/rpush.py --channel <channel_name> <list_name> <message>
+```
+
+### パラメータ
+
+| パラメータ | 説明 | 例 |
+|-----------|------|-----|
+| `--channel` | Pub/Subチャンネル名 | `summoner:abc123:monitor` |
+| `<list_name>` | RPUSHするRedisリスト名 | `summoner:abc123:tasks:1` |
+| `<message>` | 送信するメッセージ（JSON推奨） | `'{"type":"task"}'` |
+
+### 処理フロー
+
+```mermaid
+sequenceDiagram
+    participant Script as rpush.py
+    participant Redis as Redis Server
+    participant Sub as Pub/Sub Subscribers
+
+    Script->>Redis: RPUSH list_name message
+    Redis-->>Script: OK (リスト長を返す)
+    Script->>Redis: PUBLISH channel payload
+    Redis-->>Sub: メッセージ配信
+    Redis-->>Script: 購読者数を返す
+```
+
+### Pub/Subメッセージフォーマット
+
+`--channel` で送信されるPub/Subメッセージは、以下のJSON形式にラップされます：
+
+```json
+{
+  "queue": "<list_name>",
+  "message": "<original_message>",
+  "timestamp": "<ISO 8601形式の日時>"
+}
+```
+
+#### フィールド説明
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `queue` | string | メッセージが追加されたRedisリスト名 |
+| `message` | string | 元のメッセージ内容（文字列としてそのまま格納） |
+| `timestamp` | string | メッセージ追加時刻（UTC、ISO 8601形式） |
+
+#### 実例
+
+入力:
+```bash
+python scripts/rpush.py --channel summoner:abc123:monitor summoner:abc123:tasks:1 '{"task_id":"task-001","action":"build"}'
+```
+
+Pub/Subで配信されるメッセージ:
+```json
+{
+  "queue": "summoner:abc123:tasks:1",
+  "message": "{\"task_id\":\"task-001\",\"action\":\"build\"}",
+  "timestamp": "2026-01-29T12:34:56+00:00"
+}
+```
+
+### モニタリング用途での使用
+
+オーケストレーションのモニタリングでは、以下のパターンで使用します：
+
+#### Summonerオーケストレーションでの使用例
+
+```bash
+# orchestration-initで生成されたセッション情報
+SESSION_ID="a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+MONITOR_CHANNEL="summoner:${SESSION_ID}:monitor"
+
+# moogleからchocobo-1へタスク送信（モニタリング付き）
+python scripts/rpush.py \
+  --channel "${MONITOR_CHANNEL}" \
+  "summoner:${SESSION_ID}:tasks:1" \
+  '{"type":"task","task_id":"task-001","action":"implement feature X"}'
+
+# chocoboから報告送信（モニタリング付き）
+python scripts/rpush.py \
+  --channel "${MONITOR_CHANNEL}" \
+  "summoner:${SESSION_ID}:reports" \
+  '{"type":"report","task_id":"task-001","status":"completed"}'
+```
+
+#### 監視側（別ターミナル）
+
+```bash
+# redis-cliでPub/Subを購読
+redis-cli SUBSCRIBE summoner:${SESSION_ID}:monitor
+
+# または、channel_viewerツールを使用（開発中）
+python scripts/channel_viewer/main.py
+```
+
+### 注意事項
+
+1. **PUBLISH失敗時の挙動**: RPUSHが成功していれば、PUBLISHが失敗してもスクリプトは成功として終了します（警告メッセージを表示）
+2. **購読者がいない場合**: 購読者が0人でもエラーにはなりません（出力に `(0 subscriber(s))` と表示）
+3. **パフォーマンス**: 各メッセージに対して個別にPUBLISHするため、大量メッセージ送信時は若干のオーバーヘッドがあります
+
 ## Environment
 
 - **Default host**: `redis` (Docker network service name)
