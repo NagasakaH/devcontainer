@@ -1,0 +1,29 @@
+# Redis service for vimcontainer development
+# This compose file creates a Redis instance that can be accessed from devcontainers
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dev-network
+
+networks:
+  dev-network:
+    name: dev-network
+    driver: bridge
+
+volumes:
+  redis-data:
+    name: redis-dev-data

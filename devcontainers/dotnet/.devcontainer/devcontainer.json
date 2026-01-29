@@ -3,7 +3,7 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
-  "runArgs": ["--platform=linux/amd64"],
+  "runArgs": ["--platform=linux/amd64", "--network=dev-network"],
   "features": {
     "ghcr.io/devcontainers/features/git:1": {}
   },
