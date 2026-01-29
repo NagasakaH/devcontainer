@@ -1,0 +1,11 @@
+{
+  "id": "redis-utils",
+  "version": "1.0.0",
+  "name": "Redis Utils CLI",
+  "description": "Installs Redis utility CLI tools (redis-util, redis-rpush, redis-blpop, redis-orch) for Redis operations and orchestration",
+  "options": {},
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/python",
+    "ghcr.io/jsburckhardt/devcontainer-features/uv"
+  ]
+}
