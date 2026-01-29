@@ -32,17 +32,28 @@ flowchart TD
 
 ## Redisキュー設計
 
+キュー名は `orchestration-init --summoner-mode` が生成するものを使用します。
+
 | キュー名 | 用途 | 操作 |
 |----------|------|------|
-| `summoner:{session_id}:tasks:{chocobo_id}` | moogle→chocobo指示キュー（chocobo毎に個別） | moogleがRPUSH、該当chocoboのみがBLPOP |
+| `summoner:{session_id}:tasks:{N}` | moogle→chocobo指示キュー（chocobo毎に個別） | moogleがRPUSH、該当chocoboのみがBLPOP |
 | `summoner:{session_id}:reports` | chocobo→moogle報告キュー（全chocobo共有） | 複数chocoboがRPUSH、moogleがBLPOP |
+| `summoner:{session_id}:monitor` | モニタリングチャンネル（Pub/Sub） | メッセージ送信時にPUBLISH（オプショナル） |
+
+### モニタリングチャンネル
+
+モニタリングチャンネルは、Redis Pub/Subを使用してメッセージの流れを可視化するためのものです：
+
+- タスク配信時にRPUSHと同時にPUBLISHすることで、外部ツールがリアルタイムでメッセージを監視可能
+- 処理フローには影響しない（オプショナル機能）
+- redis-rpush-senderの `--channel` オプションで指定可能
 
 ### chocobo_id の命名規則
 
 summonerがchocoboを起動する際に、各chocoboに一意のIDを割り当てます：
 
-- 形式: `chocobo-XXX`（3桁ゼロ埋め連番）
-- 例: `chocobo-001`, `chocobo-002`, `chocobo-003`
+- 形式: 数字のみ（`1`, `2`, `3`）- orchestration-initが生成するキュー名に対応
+- 例: chocobo ID `1` → キュー `summoner:{session_id}:tasks:1`
 
 これにより、moogleは特定のchocoboに対して専用キュー経由で指示を送ることができます。
 
@@ -63,14 +74,37 @@ git branch --show-current
 pwd
 ```
 
-### Step 2: セッションIDの生成
+### Step 2: オーケストレーション初期化
+
+orchestration-initスキルを使用してセッション情報を初期化します：
 
 ```bash
-# UUIDを生成
-uuidgen | tr '[:upper:]' '[:lower:]'
+# オーケストレーション初期化（session_id、キュー名、モニタリングチャンネルを取得）
+python skills/orchestration-init/scripts/init_orchestration.py --summoner-mode --max-children 3 --json > /tmp/orch_config.json
+
+# セッション情報を取得
+SESSION_ID=$(jq -r .session_id /tmp/orch_config.json)
+MONITOR_CHANNEL=$(jq -r .monitor_channel /tmp/orch_config.json)
+
+# 確認
+cat /tmp/orch_config.json
 ```
 
-生成されたUUIDを `session_id` として使用します。
+出力例（`--summoner-mode`使用時）：
+```json
+{
+  "session_id": "abc12345",
+  "task_queues": [
+    "summoner:abc12345:tasks:1",
+    "summoner:abc12345:tasks:2",
+    "summoner:abc12345:tasks:3"
+  ],
+  "report_queue": "summoner:abc12345:reports",
+  "monitor_channel": "summoner:abc12345:monitor"
+}
+```
+
+この情報を後続のステップで使用します。
 
 ### Step 3: 作業計画の作成
 
@@ -88,14 +122,15 @@ uuidgen | tr '[:upper:]' '[:lower:]'
 - ブランチ: {収集した値}
 
 ### セッション情報
-- セッションID: {生成したUUID}
+- セッションID: {orchestration-initで生成したUUID}
 - 報告キュー: summoner:{session_id}:reports
+- モニタリングチャンネル: summoner:{session_id}:monitor
 
 ### chocobo構成
 - chocobo起動数: {推奨数}
-- chocobo_idリスト:
-  - chocobo-001（指示キュー: summoner:{session_id}:tasks:chocobo-001）
-  - chocobo-002（指示キュー: summoner:{session_id}:tasks:chocobo-002）
+- 指示キューリスト:
+  - chocobo-1: summoner:{session_id}:tasks:1
+  - chocobo-2: summoner:{session_id}:tasks:2
   - ...
 
 ### タスク分解
@@ -121,24 +156,28 @@ uuidgen | tr '[:upper:]' '[:lower:]'
 ### Redis連携情報
 - セッションID: {session_id}
 - 報告キュー: summoner:{session_id}:reports
+- モニタリングチャンネル: summoner:{session_id}:monitor
 
 ### chocobo一覧と専用指示キュー
 | chocobo_id | 指示キュー |
 |------------|-----------|
-| chocobo-001 | summoner:{session_id}:tasks:chocobo-001 |
-| chocobo-002 | summoner:{session_id}:tasks:chocobo-002 |
+| 1 | summoner:{session_id}:tasks:1 |
+| 2 | summoner:{session_id}:tasks:2 |
 | ... | ... |
 
 ### Redisスキルの使い方
 
-**特定のchocoboに指示を送信（RPUSH）:**
+**特定のchocoboに指示を送信（RPUSH + モニタリング）:**
 ```bash
-# chocobo-001に指示を送る場合
-python skills/redis-rpush-sender/scripts/rpush.py summoner:{session_id}:tasks:chocobo-001 "<JSON形式の指示>"
+# chocobo-1に指示を送る場合（モニタリングチャンネルへも同時publish）
+python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:{session_id}:monitor" "summoner:{session_id}:tasks:1" "<JSON形式の指示>"
 
-# chocobo-002に指示を送る場合
-python skills/redis-rpush-sender/scripts/rpush.py summoner:{session_id}:tasks:chocobo-002 "<JSON形式の指示>"
+# chocobo-2に指示を送る場合
+python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:{session_id}:monitor" "summoner:{session_id}:tasks:2" "<JSON形式の指示>"
 ```
+
+> **注意**: `--channel` オプションを指定すると、RPUSHと同時にモニタリングチャンネルへPUBLISHされます。
+> モニタリングが不要な場合は `--channel` を省略できます。
 
 **報告を受信（BLPOP）:**
 ```bash
@@ -158,12 +197,13 @@ chocoboからの報告を待ち、全タスク完了後に最終報告をまと�
 あなたは作業実行者です。Redisキューから指示を受け取り、作業を実行してください。
 
 ### あなたの識別情報
-- chocobo_id: {chocobo-001 など、このchocobo専用のID}
+- chocobo_id: {1, 2 など、このchocobo専用のID}
 
 ### Redis連携情報
 - セッションID: {session_id}
 - 自分専用の指示キュー: summoner:{session_id}:tasks:{chocobo_id}
 - 報告キュー（共有）: summoner:{session_id}:reports
+- モニタリングチャンネル: summoner:{session_id}:monitor
 
 > **重要**: あなたは `summoner:{session_id}:tasks:{chocobo_id}` のみを監視してください。
 > 他のchocoboの指示キューは監視しないでください。
@@ -175,10 +215,13 @@ chocoboからの報告を待ち、全タスク完了後に最終報告をまと�
 python skills/redis-blpop-receiver/scripts/blpop_receiver.py summoner:{session_id}:tasks:{chocobo_id} --timeout 300
 ```
 
-**報告を送信（RPUSH）:**
+**報告を送信（RPUSH + モニタリング）:**
 ```bash
-python skills/redis-rpush-sender/scripts/rpush.py summoner:{session_id}:reports "<JSON形式の報告>"
+# モニタリングチャンネルへも同時publish
+python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:{session_id}:monitor" summoner:{session_id}:reports "<JSON形式の報告>"
 ```
+
+> **注意**: `--channel` オプションはオプショナルです。モニタリングが不要な場合は省略できます。
 
 指示が来るまで待機し、指示を受け取ったら作業を実行して報告を送信してください。
 終了指示（type: "shutdown"）を受け取ったら終了してください。
@@ -201,10 +244,12 @@ model: claude-opus-4.5
 ## 重要な注意事項
 
 - **summonerは計画立案者であり、実作業は行わない**
+- **orchestration-initスキルを使用してセッション情報を初期化する**
 - **moogleとchocoboの並列起動が核心** - 順次ではなく並列で呼び出すこと
 - **chocoboは複数起動可能** - タスクの並列度に応じて数を調整
-- **各chocoboには一意のchocobo_idを割り当てる** - `chocobo-001`, `chocobo-002` など
+- **各chocoboには一意のchocobo_id（数字）を割り当てる** - `1`, `2`, `3` など
 - **セッションIDとchocobo_idは必ず両方のエージェントに伝える** - Redis連携の要
+- **モニタリングチャンネル名も伝達する** - メッセージの可視化に使用
 - **moogleにはchocobo_idリストと各専用キュー名を伝える** - 特定chocoboへの指示送信に必要
 - **各chocoboには自分専用のchocobo_idと指示キュー名を伝える** - 自分のキューのみ監視させる
 - **環境情報は必ず収集する** - DOCS_ROOT未設定の場合はその旨をmoogleに伝える

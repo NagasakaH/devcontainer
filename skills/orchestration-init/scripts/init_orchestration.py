@@ -2,14 +2,20 @@
 """
 オーケストレーション用Redis Blocked List/ストリームの初期化スクリプト
 
-Blocked List方式:
+通常モード（Blocked List方式）:
 - 親→子: RPUSH {prefix}:p2c:{i} でタスク送信、子はBLPOP で待機
 - 子→親: RPUSH {prefix}:c2p:{i} で結果報告、親はBLPOP で受信
+- 命名規則: {PROJECT_NAME}-{HOST_NAME}-{連番}
 
-命名規則: {PROJECT_NAME}-{HOST_NAME}-{連番}
+Summonerモード:
+- 親→子: RPUSH summoner:{session_id}:tasks:{i} でタスク送信、子はBLPOP で待機
+- 子→親: RPUSH summoner:{session_id}:reports で結果報告（全chocobo共有）
+- モニター: PUBLISH summoner:{session_id}:monitor でPub/Sub可視化
+- 命名規則: summoner:{UUID}
 
 Usage:
     python init_orchestration.py [--max-children N] [--prefix PREFIX]
+    python init_orchestration.py --summoner-mode [--max-children N]
 
 Examples:
     # デフォルト設定で初期化（最大9子）
@@ -20,6 +26,9 @@ Examples:
 
     # カスタムプレフィックス
     python init_orchestration.py --prefix "myproject-myhost"
+    
+    # Summonerモードで初期化
+    python init_orchestration.py --summoner-mode --max-children 3
 """
 
 import argparse
@@ -28,6 +37,7 @@ import os
 import socket
 import sys
 import time
+import uuid
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 
@@ -54,6 +64,12 @@ class OrchestrationConfig:
     
     # 制御用リスト（停止/キャンセル、BLPOPで待機）
     control_list: str = ""
+    
+    # モニタリング用Pub/Subチャンネル（summonerモード用）
+    monitor_channel: str = ""
+    
+    # モード識別（"normal" or "summoner"）
+    mode: str = "normal"
 
 
 def get_default_prefix() -> str:
@@ -67,10 +83,15 @@ def get_default_prefix() -> str:
 
 
 def generate_session_id() -> str:
-    """ユニークなセッションIDを生成"""
+    """ユニークなセッションIDを生成（通常モード用）"""
     timestamp = int(time.time() * 1000)  # ミリ秒単位
     pid = os.getpid()
     return f"{timestamp}-{pid}"
+
+
+def generate_uuid_session_id() -> str:
+    """UUID形式のセッションIDを生成（summonerモード用）"""
+    return str(uuid.uuid4())
 
 
 def send_redis_command(host: str, port: int, *args: str) -> str:
@@ -190,6 +211,91 @@ def initialize_orchestration(
     return config
 
 
+def initialize_summoner_orchestration(
+    host: str,
+    port: int,
+    max_children: int,
+    session_id: Optional[str] = None,
+    ttl: int = 3600,
+) -> OrchestrationConfig:
+    """
+    Summonerモード用のオーケストレーションを初期化
+
+    Args:
+        host: Redisホスト
+        port: Redisポート
+        max_children: 最大子エージェント（chocobo）数
+        session_id: セッションID（Noneの場合はUUID自動生成）
+        ttl: 設定のTTL秒数（デフォルト: 1時間）
+
+    Returns:
+        OrchestrationConfig: 初期化された設定
+    """
+    # UUID形式のセッションIDを生成
+    if session_id is None:
+        session_id = generate_uuid_session_id()
+    
+    session_prefix = f"summoner:{session_id}"
+    created_at = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+    
+    # 設定オブジェクト作成
+    config = OrchestrationConfig(
+        session_id=session_id,
+        prefix=session_prefix,
+        max_children=max_children,
+        created_at=created_at,
+        mode="summoner",
+    )
+    
+    # 親→子リスト（タスク割り当て、chocobo毎に個別キュー）
+    for i in range(1, max_children + 1):
+        config.parent_to_child_lists.append(f"{session_prefix}:tasks:{i}")
+    
+    # 子→親リスト（結果報告、全chocobo共有の単一キュー）
+    config.child_to_parent_lists.append(f"{session_prefix}:reports")
+    
+    # 状態管理ストリーム
+    config.status_stream = f"{session_prefix}:status"
+    
+    # 結果収集ストリーム
+    config.result_stream = f"{session_prefix}:results"
+    
+    # 制御リスト（BLPOPで待機）
+    config.control_list = f"{session_prefix}:control"
+    
+    # モニタリング用Pub/Subチャンネル
+    config.monitor_channel = f"{session_prefix}:monitor"
+    
+    # 設定をRedisに保存
+    config_key = f"{session_prefix}:config"
+    config_json = json.dumps(asdict(config), ensure_ascii=False)
+    send_redis_command(host, port, "SET", config_key, config_json)
+    send_redis_command(host, port, "EXPIRE", config_key, str(ttl))
+    
+    # 初期状態をストリームに記録
+    send_redis_command(
+        host, port,
+        "XADD", config.status_stream, "*",
+        "event", "initialized",
+        "mode", "summoner",
+        "session_id", session_id,
+        "max_children", str(max_children),
+        "created_at", created_at,
+    )
+    send_redis_command(host, port, "EXPIRE", config.status_stream, str(ttl))
+    
+    # モニターチャンネルに初期化イベントを通知
+    init_message = json.dumps({
+        "event": "initialized",
+        "session_id": session_id,
+        "max_children": max_children,
+        "created_at": created_at,
+    }, ensure_ascii=False)
+    send_redis_command(host, port, "PUBLISH", config.monitor_channel, init_message)
+    
+    return config
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="オーケストレーション用Redis Blocked List/ストリームを初期化",
@@ -210,7 +316,7 @@ def main():
     parser.add_argument(
         "--prefix",
         default=None,
-        help="リストプレフィックス (default: $PROJECT_NAME-$HOST_NAME)",
+        help="リストプレフィックス (default: $PROJECT_NAME-$HOST_NAME) ※通常モードのみ",
     )
     parser.add_argument(
         "--max-children",
@@ -222,7 +328,7 @@ def main():
         "--sequence",
         type=int,
         default=None,
-        help="シーケンス番号（省略時は自動検索）",
+        help="シーケンス番号（省略時は自動検索）※通常モードのみ",
     )
     parser.add_argument(
         "--ttl",
@@ -235,42 +341,87 @@ def main():
         action="store_true",
         help="JSON形式で出力",
     )
+    parser.add_argument(
+        "--summoner-mode",
+        action="store_true",
+        help="Summonerモードで初期化（UUID形式セッションID、共有報告キュー、モニターチャンネル付き）",
+    )
+    parser.add_argument(
+        "--session-id",
+        default=None,
+        help="セッションIDを指定（省略時は自動生成）※summonerモードのみ",
+    )
 
     args = parser.parse_args()
 
-    # プレフィックスの決定
-    prefix = args.prefix if args.prefix else get_default_prefix()
-
     try:
-        config = initialize_orchestration(
-            host=args.host,
-            port=args.port,
-            prefix=prefix,
-            max_children=args.max_children,
-            sequence=args.sequence,
-            ttl=args.ttl,
-        )
-        
-        if args.json:
-            print(json.dumps(asdict(config), ensure_ascii=False, indent=2))
+        if args.summoner_mode:
+            # Summonerモードで初期化
+            config = initialize_summoner_orchestration(
+                host=args.host,
+                port=args.port,
+                max_children=args.max_children,
+                session_id=args.session_id,
+                ttl=args.ttl,
+            )
+            
+            if args.json:
+                print(json.dumps(asdict(config), ensure_ascii=False, indent=2))
+            else:
+                print(f"✓ Summonerオーケストレーション初期化完了")
+                print(f"")
+                print(f"  セッションID: {config.session_id}")
+                print(f"  プレフィックス: {config.prefix}")
+                print(f"  最大子数: {config.max_children}")
+                print(f"  作成日時: {config.created_at}")
+                print(f"  モード: summoner")
+                print(f"")
+                print(f"  キュー構造:")
+                print(f"    親→子 (tasks): {config.prefix}:tasks:{{1-{config.max_children}}}")
+                print(f"    子→親 (reports): {config.prefix}:reports  ※全chocobo共有")
+                print(f"    状態: {config.status_stream}")
+                print(f"    結果: {config.result_stream}")
+                print(f"    制御: {config.control_list}")
+                print(f"    モニター (Pub/Sub): {config.monitor_channel}")
+                print(f"    設定: {config.prefix}:config")
+                print(f"")
+                print(f"  環境変数にエクスポート:")
+                print(f"    export SUMMONER_SESSION={config.session_id}")
+                print(f"    export SUMMONER_PREFIX={config.prefix}")
         else:
-            print(f"✓ オーケストレーション初期化完了")
-            print(f"")
-            print(f"  セッションID: {config.session_id}")
-            print(f"  プレフィックス: {config.prefix}")
-            print(f"  最大子数: {config.max_children}")
-            print(f"  作成日時: {config.created_at}")
-            print(f"")
-            print(f"  Blocked List/ストリーム:")
-            print(f"    親→子 (BLPOP): {config.prefix}:p2c:{{1-{config.max_children}}}")
-            print(f"    子→親 (BLPOP): {config.prefix}:c2p:{{1-{config.max_children}}}")
-            print(f"    状態: {config.status_stream}")
-            print(f"    結果: {config.result_stream}")
-            print(f"    制御 (BLPOP): {config.control_list}")
-            print(f"    設定: {config.prefix}:config")
-            print(f"")
-            print(f"  環境変数にエクスポート:")
-            print(f"    export ORCH_SESSION={config.prefix}")
+            # 通常モードで初期化
+            prefix = args.prefix if args.prefix else get_default_prefix()
+            
+            config = initialize_orchestration(
+                host=args.host,
+                port=args.port,
+                prefix=prefix,
+                max_children=args.max_children,
+                sequence=args.sequence,
+                ttl=args.ttl,
+            )
+            
+            if args.json:
+                print(json.dumps(asdict(config), ensure_ascii=False, indent=2))
+            else:
+                print(f"✓ オーケストレーション初期化完了")
+                print(f"")
+                print(f"  セッションID: {config.session_id}")
+                print(f"  プレフィックス: {config.prefix}")
+                print(f"  最大子数: {config.max_children}")
+                print(f"  作成日時: {config.created_at}")
+                print(f"  モード: normal")
+                print(f"")
+                print(f"  Blocked List/ストリーム:")
+                print(f"    親→子 (BLPOP): {config.prefix}:p2c:{{1-{config.max_children}}}")
+                print(f"    子→親 (BLPOP): {config.prefix}:c2p:{{1-{config.max_children}}}")
+                print(f"    状態: {config.status_stream}")
+                print(f"    結果: {config.result_stream}")
+                print(f"    制御 (BLPOP): {config.control_list}")
+                print(f"    設定: {config.prefix}:config")
+                print(f"")
+                print(f"  環境変数にエクスポート:")
+                print(f"    export ORCH_SESSION={config.prefix}")
 
     except ConnectionRefusedError:
         print(f"✗ Error: Cannot connect to Redis at {args.host}:{args.port}", file=sys.stderr)

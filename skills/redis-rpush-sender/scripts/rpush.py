@@ -5,6 +5,7 @@ Redis RPUSH sender - Add messages to a Redis Blocked List using RPUSH command.
 Usage:
     python rpush.py <list_name> <message> [<message2> ...]
     python rpush.py --host <host> --port <port> <list_name> <message>
+    python rpush.py --channel <channel> <list_name> <message>
 
 Examples:
     # Add single message to list
@@ -18,11 +19,16 @@ Examples:
 
     # Read messages from stdin (one per line)
     echo -e "msg1\nmsg2" | python rpush.py --stdin myqueue
+
+    # RPUSH and simultaneously publish to a Pub/Sub channel
+    python rpush.py --channel summoner:abc123:monitor myqueue '{"type":"task"}'
 """
 
 import argparse
+import json
 import sys
 import socket
+from datetime import datetime, timezone
 
 
 def send_redis_command(host: str, port: int, *args: str) -> str:
@@ -77,6 +83,49 @@ def rpush(host: str, port: int, list_name: str, messages: list[str]) -> int:
         raise RuntimeError(f"Unexpected response: {response}")
 
 
+def publish(host: str, port: int, channel: str, message: str) -> int:
+    """
+    Publish a message to a Redis Pub/Sub channel.
+
+    Args:
+        host: Redis host
+        port: Redis port
+        channel: Pub/Sub channel name
+        message: Message to publish
+
+    Returns:
+        Number of subscribers that received the message
+    """
+    response = send_redis_command(host, port, "PUBLISH", channel, message)
+
+    # Parse integer response (format: ":N\r\n")
+    if response.startswith(":"):
+        return int(response[1:])
+    elif response.startswith("-"):
+        raise RuntimeError(f"Redis error: {response[1:]}")
+    else:
+        raise RuntimeError(f"Unexpected response: {response}")
+
+
+def create_publish_payload(queue_name: str, message: str) -> str:
+    """
+    Create a JSON payload for publishing to a channel.
+
+    Args:
+        queue_name: Name of the queue the message was added to
+        message: Original message content
+
+    Returns:
+        JSON string with queue, message, and timestamp
+    """
+    payload = {
+        "queue": queue_name,
+        "message": message,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    return json.dumps(payload, ensure_ascii=False)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Add messages to a Redis Blocked List using RPUSH",
@@ -95,6 +144,10 @@ def main():
         "--stdin",
         action="store_true",
         help="Read messages from stdin (one per line)",
+    )
+    parser.add_argument(
+        "--channel",
+        help="Pub/Sub channel to publish messages to (in addition to RPUSH)",
     )
     parser.add_argument("list_name", help="Name of the Redis list to push to")
     parser.add_argument(
@@ -121,6 +174,25 @@ def main():
         for i, msg in enumerate(messages, 1):
             preview = msg[:50] + "..." if len(msg) > 50 else msg
             print(f"  [{i}] {preview}")
+
+        # Publish to channel if specified
+        if args.channel:
+            publish_errors = []
+            for msg in messages:
+                try:
+                    payload = create_publish_payload(args.list_name, msg)
+                    subscribers = publish(args.host, args.port, args.channel, payload)
+                    preview = msg[:30] + "..." if len(msg) > 30 else msg
+                    print(f"  → Published to '{args.channel}' ({subscribers} subscriber(s)): {preview}")
+                except Exception as e:
+                    publish_errors.append((msg, str(e)))
+            
+            if publish_errors:
+                print(f"⚠ Warning: {len(publish_errors)} publish operation(s) failed:", file=sys.stderr)
+                for msg, err in publish_errors:
+                    preview = msg[:30] + "..." if len(msg) > 30 else msg
+                    print(f"  - '{preview}': {err}", file=sys.stderr)
+
     except ConnectionRefusedError:
         print(f"✗ Error: Cannot connect to Redis at {args.host}:{args.port}", file=sys.stderr)
         print("  Ensure Redis is running and accessible.", file=sys.stderr)

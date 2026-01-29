@@ -101,21 +101,32 @@ sequenceDiagram
 ### 送信（RPUSH）- redis-rpush-senderスキル
 
 ```bash
-python skills/redis-rpush-sender/scripts/rpush.py <queue_name> "<json_message>"
+python skills/redis-rpush-sender/scripts/rpush.py [--channel <monitor_channel>] <queue_name> "<json_message>"
 ```
+
+#### オプション
+
+| オプション | 説明 |
+|-----------|------|
+| `--channel` | RPUSHと同時にこのチャンネルにPUBLISHする（モニタリング用） |
 
 例:
 ```bash
-# タスク送信（chocobo_id=1 のchocoboに送信）
+# タスク送信（chocobo_id=1 のchocoboに送信、モニタリングなし）
 python skills/redis-rpush-sender/scripts/rpush.py "summoner:abc123:tasks:1" '{"type":"task","task_id":"001","instruction":"ファイルを作成してください","output_dir":"/docs/main/tasks/example/001/"}'
 
+# タスク送信（モニタリングチャンネルへも同時publish）
+python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:abc123:monitor" "summoner:abc123:tasks:1" '{"type":"task","task_id":"001","instruction":"ファイルを作成してください","output_dir":"/docs/main/tasks/example/001/"}'
+
 # タスク送信（chocobo_id=2 のchocoboに送信）
-python skills/redis-rpush-sender/scripts/rpush.py "summoner:abc123:tasks:2" '{"type":"task","task_id":"002","instruction":"テストを作成してください","output_dir":"/docs/main/tasks/example/002/"}'
+python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:abc123:monitor" "summoner:abc123:tasks:2" '{"type":"task","task_id":"002","instruction":"テストを作成してください","output_dir":"/docs/main/tasks/example/002/"}'
 
 # シャットダウン送信（各chocobo専用キューに送信）
-python skills/redis-rpush-sender/scripts/rpush.py "summoner:abc123:tasks:1" '{"type":"shutdown"}'
-python skills/redis-rpush-sender/scripts/rpush.py "summoner:abc123:tasks:2" '{"type":"shutdown"}'
+python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:abc123:monitor" "summoner:abc123:tasks:1" '{"type":"shutdown"}'
+python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:abc123:monitor" "summoner:abc123:tasks:2" '{"type":"shutdown"}'
 ```
+
+> **注意**: `--channel` オプションはオプショナルです。モニタリングが不要な場合や、モニタリングチャンネル名が提供されていない場合は省略できます。
 
 ### 受信（BLPOP）- redis-blpop-receiverスキル
 
@@ -628,8 +639,9 @@ date: 2025-01-15T10:30:45+09:00
 #### 基本フロー（DOCS_ROOT設定済みの場合）
 
 ```bash
-# session_id は summoner から受け取る
+# session_id と monitor_channel は summoner から受け取る
 SESSION_ID="abc123"
+MONITOR_CHANNEL="summoner:abc123:monitor"
 # chocobo_id はsummonerがchocobo起動時に割り当てた値（例: 1, 2）
 
 # 1. 補足事項の情報をそのまま使用（環境変数チェック不要）クポ！
@@ -652,9 +664,9 @@ mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/001-2/
 
 # 5. タスク実行履歴.mdに記録
 
-# 6. Redis経由でタスクを配信（各chocoboの専用キューに送信）
+# 6. Redis経由でタスクを配信（各chocoboの専用キューに送信 + モニタリング）
 # chocobo_id=1 に送信
-python skills/redis-rpush-sender/scripts/rpush.py "summoner:${SESSION_ID}:tasks:1" '{
+python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:1" '{
   "type": "task",
   "task_id": "001-1",
   "instruction": "READMEを作成してください",
@@ -662,12 +674,13 @@ python skills/redis-rpush-sender/scripts/rpush.py "summoner:${SESSION_ID}:tasks:
   "context": {
     "work_dir": "/workspaces/devcontainer",
     "docs_root": "/docs",
-    "task_history": "/docs/main/tasks/devcontainer/機能追加タスク/タスク実行履歴.md"
+    "task_history": "/docs/main/tasks/devcontainer/機能追加タスク/タスク実行履歴.md",
+    "monitor_channel": "summoner:abc123:monitor"
   }
 }'
 
 # chocobo_id=2 に送信
-python skills/redis-rpush-sender/scripts/rpush.py "summoner:${SESSION_ID}:tasks:2" '{
+python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:2" '{
   "type": "task",
   "task_id": "001-2",
   "instruction": "テストを作成してください",
@@ -675,7 +688,8 @@ python skills/redis-rpush-sender/scripts/rpush.py "summoner:${SESSION_ID}:tasks:
   "context": {
     "work_dir": "/workspaces/devcontainer",
     "docs_root": "/docs",
-    "task_history": "/docs/main/tasks/devcontainer/機能追加タスク/タスク実行履歴.md"
+    "task_history": "/docs/main/tasks/devcontainer/機能追加タスク/タスク実行履歴.md",
+    "monitor_channel": "summoner:abc123:monitor"
   }
 }'
 
@@ -687,19 +701,20 @@ python skills/redis-blpop-receiver/scripts/blpop_receiver.py "summoner:${SESSION
 # → 2つ目の報告を受信
 
 # 8. 全タスク完了後、各chocoboの専用キューにシャットダウンメッセージを送信
-python skills/redis-rpush-sender/scripts/rpush.py "summoner:${SESSION_ID}:tasks:1" '{"type":"shutdown"}'
-python skills/redis-rpush-sender/scripts/rpush.py "summoner:${SESSION_ID}:tasks:2" '{"type":"shutdown"}'
+python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:1" '{"type":"shutdown"}'
+python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:2" '{"type":"shutdown"}'
 ```
 
 #### DOCS_ROOT未設定の場合
 
 ```bash
 SESSION_ID="abc123"
+MONITOR_CHANNEL="summoner:abc123:monitor"
 
 # DOCS_ROOT未設定の場合はドキュメント出力をスキップクポ
 
-# タスクを各chocoboの専用キューに配信
-python skills/redis-rpush-sender/scripts/rpush.py "summoner:${SESSION_ID}:tasks:1" '{
+# タスクを各chocoboの専用キューに配信（モニタリング付き）
+python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:1" '{
   "type": "task",
   "task_id": "001",
   "instruction": "機能を実装してください",
@@ -707,7 +722,8 @@ python skills/redis-rpush-sender/scripts/rpush.py "summoner:${SESSION_ID}:tasks:
   "context": {
     "work_dir": "/workspaces/devcontainer",
     "docs_root": null,
-    "note": "DOCS_ROOT未設定のためドキュメント出力はスキップ"
+    "note": "DOCS_ROOT未設定のためドキュメント出力はスキップ",
+    "monitor_channel": "summoner:abc123:monitor"
   }
 }'
 
@@ -715,5 +731,22 @@ python skills/redis-rpush-sender/scripts/rpush.py "summoner:${SESSION_ID}:tasks:
 python skills/redis-blpop-receiver/scripts/blpop_receiver.py "summoner:${SESSION_ID}:reports" --timeout 300
 
 # 各chocoboの専用キューにシャットダウン送信
-python skills/redis-rpush-sender/scripts/rpush.py "summoner:${SESSION_ID}:tasks:1" '{"type":"shutdown"}'
+python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:1" '{"type":"shutdown"}'
+```
+
+#### モニタリングチャンネルが提供されていない場合
+
+後方互換性のため、モニタリングチャンネルが提供されていない場合は `--channel` オプションを省略して動作させます：
+
+```bash
+SESSION_ID="abc123"
+# MONITOR_CHANNEL が未提供の場合
+
+# モニタリングなしでタスクを配信
+python skills/redis-rpush-sender/scripts/rpush.py "summoner:${SESSION_ID}:tasks:1" '{
+  "type": "task",
+  "task_id": "001",
+  "instruction": "機能を実装してください",
+  "output_dir": "/docs/main/tasks/example/001/"
+}'
 ```
