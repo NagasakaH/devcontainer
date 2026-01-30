@@ -51,7 +51,28 @@ def get_type_emoji(msg_type: str) -> str:
         return "📤"
     elif msg_type == "report":
         return "📥"
+    elif msg_type == "shutdown":
+        return "🛑"
     return "💬"
+
+
+def extract_chocobo_id_from_queue(queue_name: str) -> Optional[str]:
+    """キュー名からchocobo IDを抽出
+    
+    Args:
+        queue_name: キュー名（例: "summoner:abc123:tasks:1"）
+        
+    Returns:
+        chocobo ID（例: "1"）、抽出できない場合はNone
+    """
+    if not queue_name:
+        return None
+    # キュー名が "summoner:{session_id}:tasks:{N}" 形式の場合
+    if ":tasks:" in queue_name:
+        parts = queue_name.split(":tasks:")
+        if len(parts) == 2 and parts[1]:
+            return parts[1]
+    return None
 
 
 class SessionList(Static):
@@ -193,7 +214,12 @@ class MessageStream(Static):
         yield RichLog(highlight=True, markup=True, wrap=True, id="message-log")
     
     def add_message(self, msg: MonitorMessage, session_id: str = "") -> Optional[tuple[str, str, str]]:
-        """メッセージを追加（[type]sender:message形式で表示）
+        """メッセージを追加（[sender → receiver] message形式で表示）
+        
+        メッセージの方向を明確に表示:
+        - タスク: [moogle → chocobo-N] instruction...
+        - 報告: [chocobo-N → moogle] result...
+        - shutdown: [moogle → chocobo-N] 終了
         
         Returns:
             成功時は (msg_type, sender, content) のタプル、失敗時はNone
@@ -210,6 +236,10 @@ class MessageStream(Static):
         if not message_content:
             return None
         
+        # キュー名を取得（タスクの宛先chocobo判定用）
+        queue_name = msg.parsed_data.get("list", "")
+        target_chocobo_id = extract_chocobo_id_from_queue(queue_name)
+        
         # messageの中身をパース（JSON形式）
         try:
             if isinstance(message_content, str):
@@ -225,18 +255,26 @@ class MessageStream(Static):
         # typeを取得
         msg_type = message_data.get("type", "unknown")
         
-        # 送信者を決定
-        child_id = message_data.get("child_id")
+        # chocobo_idを取得（報告メッセージ用）
+        # chocobo_id を優先、なければ child_id をフォールバック
+        chocobo_id = message_data.get("chocobo_id") or message_data.get("child_id")
+        
+        # 送信者と受信者を決定
         if msg_type == "task":
             sender = "moogle"
+            receiver = f"chocobo-{target_chocobo_id}" if target_chocobo_id else "chocobo"
         elif msg_type == "report":
-            sender = f"chocobo-{child_id}" if child_id is not None else "chocobo"
+            sender = f"chocobo-{chocobo_id}" if chocobo_id is not None else "chocobo"
+            receiver = "moogle"
         elif msg_type == "status":
-            sender = f"chocobo-{child_id}" if child_id is not None else "chocobo"
+            sender = f"chocobo-{chocobo_id}" if chocobo_id is not None else "chocobo"
+            receiver = "moogle"
         elif msg_type == "shutdown":
             sender = "moogle"
+            receiver = f"chocobo-{target_chocobo_id}" if target_chocobo_id else "chocobo"
         else:
             sender = "unknown"
+            receiver = "unknown"
         
         # メッセージ文言を決定
         max_length = 50
@@ -252,7 +290,7 @@ class MessageStream(Static):
         elif msg_type == "status":
             content = message_data.get("event", "")
         elif msg_type == "shutdown":
-            content = message_data.get("reason", "")
+            content = message_data.get("reason", "") or "終了指示"
         else:
             content = str(message_data)
         
@@ -264,29 +302,42 @@ class MessageStream(Static):
         color = get_type_color(msg_type)
         emoji = get_type_emoji(msg_type)
         
-        # メッセージを整形: [type]sender:message
+        # メッセージを整形: [sender → receiver] message
         text = Text()
         text.append(f"{emoji} ", style="bold")
-        text.append(f"[{msg_type}]", style=f"bold {color}")
+        text.append("[", style="dim")
         text.append(f"{sender}", style="yellow")
-        text.append(":", style="white")
+        text.append(" → ", style="dim cyan")
+        text.append(f"{receiver}", style="yellow")
+        text.append("] ", style="dim")
         text.append(display_content, style="white")
         
         log.write(text)
         
-        # ログ保存用に情報を返す
-        return (msg_type, sender, content)
+        # ログ保存用に情報を返す（sender → receiver形式）
+        direction_info = f"{sender} → {receiver}"
+        return (msg_type, direction_info, content)
     
     def add_log_entry(self, entry: LogEntry) -> None:
-        """ログエントリを表示（過去ログ読み込み用）"""
+        """ログエントリを表示（過去ログ読み込み用）
+        
+        新しい表示形式に対応:
+        - タスク: [moogle → chocobo-N] instruction...
+        - 報告: [chocobo-N → moogle] result...
+        """
         log = self.query_one("#message-log", RichLog)
         
         msg_type = entry.msg_type
         sender = entry.sender
         content = entry.content
         
-        # msg_type == "task" の場合、raw_data.message から instruction を抽出
-        if msg_type == "task" and entry.raw_data:
+        # raw_dataから追加情報を抽出
+        receiver = "unknown"
+        if entry.raw_data:
+            # キュー名からchocobo IDを抽出
+            queue_name = entry.raw_data.get("list", "")
+            target_chocobo_id = extract_chocobo_id_from_queue(queue_name)
+            
             message_content = entry.raw_data.get("message")
             if message_content:
                 try:
@@ -296,24 +347,49 @@ class MessageStream(Static):
                         message_data = message_content
                     if isinstance(message_data, dict):
                         # instruction または prompt を取得
-                        content = message_data.get("instruction", "") or message_data.get("prompt", "") or content
+                        if msg_type == "task":
+                            content = message_data.get("instruction", "") or message_data.get("prompt", "") or content
+                        
+                        # chocobo_id を取得（報告メッセージ用）
+                        chocobo_id = message_data.get("chocobo_id") or message_data.get("child_id")
+                        
+                        # 送信者と受信者を再計算
+                        if msg_type == "task":
+                            sender = "moogle"
+                            receiver = f"chocobo-{target_chocobo_id}" if target_chocobo_id else "chocobo"
+                        elif msg_type == "report":
+                            sender = f"chocobo-{chocobo_id}" if chocobo_id is not None else "chocobo"
+                            receiver = "moogle"
+                        elif msg_type == "shutdown":
+                            sender = "moogle"
+                            receiver = f"chocobo-{target_chocobo_id}" if target_chocobo_id else "chocobo"
+                        else:
+                            receiver = "moogle"
                 except (json.JSONDecodeError, TypeError):
                     pass
+        
+        # 送信者情報が "sender → receiver" 形式の場合は分割
+        if " → " in sender:
+            parts = sender.split(" → ")
+            if len(parts) == 2:
+                sender = parts[0]
+                receiver = parts[1]
         
         # 長い場合は切り詰め
         max_length = 50
         display_content = content[:max_length] + "..." if len(content) > max_length else content
         
         # 色と絵文字を取得
-        color = get_type_color(msg_type)
         emoji = get_type_emoji(msg_type)
         
-        # メッセージを整形: [type]sender:message (with timestamp)
+        # メッセージを整形: [sender → receiver] message (with timestamp)
         text = Text()
         text.append(f"{emoji} ", style="bold")
-        text.append(f"[{msg_type}]", style=f"bold {color}")
+        text.append("[", style="dim")
         text.append(f"{sender}", style="yellow")
-        text.append(":", style="white")
+        text.append(" → ", style="dim cyan")
+        text.append(f"{receiver}", style="yellow")
+        text.append("] ", style="dim")
         text.append(display_content, style="white")
         text.append(f" ({entry.timestamp[:19]})", style="dim")  # タイムスタンプを追加
         
