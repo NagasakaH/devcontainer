@@ -73,6 +73,76 @@ class TestTaskMessage:
         assert d["prompt"] == "テスト"
         assert d["session_id"] == "s1"
         assert d["child_id"] == 2
+    
+    def test_instruction_alias_property(self):
+        """instruction プロパティが prompt と同じ値を返すこと"""
+        task = TaskMessage.create(
+            prompt="テストタスク",
+            session_id="s1",
+            child_id=1,
+        )
+        
+        assert task.instruction == task.prompt
+        assert task.instruction == "テストタスク"
+    
+    def test_from_dict_with_instruction_field(self):
+        """instruction フィールドが prompt にマッピングされること"""
+        data = {
+            "type": "task",
+            "task_id": "task-123",
+            "session_id": "session-123",
+            "child_id": 1,
+            "instruction": "「くぇー1」と報告してください",
+        }
+        
+        task = TaskMessage.from_dict(data)
+        
+        assert task.prompt == "「くぇー1」と報告してください"
+        assert task.instruction == "「くぇー1」と報告してください"
+    
+    def test_from_dict_with_prompt_field(self):
+        """prompt フィールドが引き続きサポートされること（後方互換性）"""
+        data = {
+            "type": "task",
+            "task_id": "task-456",
+            "session_id": "session-456",
+            "child_id": 2,
+            "prompt": "テストプロンプト",
+        }
+        
+        task = TaskMessage.from_dict(data)
+        
+        assert task.prompt == "テストプロンプト"
+        assert task.instruction == "テストプロンプト"
+    
+    def test_from_dict_instruction_takes_priority_over_prompt(self):
+        """instruction と prompt の両方が存在する場合、instruction を優先すること"""
+        data = {
+            "type": "task",
+            "task_id": "task-789",
+            "session_id": "session-789",
+            "child_id": 3,
+            "instruction": "instruction の値",
+            "prompt": "prompt の値",
+        }
+        
+        task = TaskMessage.from_dict(data)
+        
+        assert task.prompt == "instruction の値"
+        assert task.instruction == "instruction の値"
+    
+    def test_from_json_with_instruction_field(self):
+        """JSON文字列からinstructionフィールドをパースできること"""
+        json_str = json.dumps({
+            "type": "task",
+            "task_id": "1",
+            "instruction": "「くぇー1」と報告してください"
+        })
+        
+        task = TaskMessage.from_json(json_str)
+        
+        assert task.prompt == "「くぇー1」と報告してください"
+        assert task.instruction == "「くぇー1」と報告してください"
 
 
 class TestReportMessage:

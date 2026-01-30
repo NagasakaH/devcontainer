@@ -285,6 +285,21 @@ class MessageStream(Static):
         sender = entry.sender
         content = entry.content
         
+        # msg_type == "task" の場合、raw_data.message から instruction を抽出
+        if msg_type == "task" and entry.raw_data:
+            message_content = entry.raw_data.get("message")
+            if message_content:
+                try:
+                    if isinstance(message_content, str):
+                        message_data = json.loads(message_content)
+                    else:
+                        message_data = message_content
+                    if isinstance(message_data, dict):
+                        # instruction または prompt を取得
+                        content = message_data.get("instruction", "") or message_data.get("prompt", "") or content
+                except (json.JSONDecodeError, TypeError):
+                    pass
+        
         # 長い場合は切り詰め
         max_length = 50
         display_content = content[:max_length] + "..." if len(content) > max_length else content

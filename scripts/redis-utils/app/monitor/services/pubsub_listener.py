@@ -31,6 +31,7 @@ class MonitorMessage:
     parsed_data: Optional[dict[str, Any]] = None
     message_type: str = "unknown"  # "task", "report", その他
     display_content: str = ""  # task_id の中身
+    sender: str = "unknown"  # 送信者（"moogle", "chocobo-N", など）
     
     def __post_init__(self):
         """パースとメタデータ抽出"""
@@ -43,6 +44,14 @@ class MonitorMessage:
         # message フィールドから type と表示内容を抽出
         if isinstance(self.parsed_data, dict):
             message_field = self.parsed_data.get("message")
+            
+            # message_field が文字列の場合はJSONパースする
+            if isinstance(message_field, str):
+                try:
+                    message_field = json.loads(message_field)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            
             if isinstance(message_field, dict):
                 self.message_type = message_field.get("type", "unknown")
                 # タイプに応じた表示内容を設定
@@ -55,10 +64,37 @@ class MonitorMessage:
                 else:
                     # その他の場合はtask_idをフォールバック
                     self.display_content = message_field.get("task_id", "")
+                
+                # 送信者を判定
+                self.sender = self._determine_sender(message_field)
             else:
                 # message フィールドがない場合はフォールバック
                 self.message_type = "unknown"
                 self.display_content = str(message_field) if message_field else ""
+                self.sender = "unknown"
+    
+    def _determine_sender(self, message_data: dict[str, Any]) -> str:
+        """メッセージタイプとchild_idから送信者を判定
+        
+        Args:
+            message_data: messageフィールドの内容
+            
+        Returns:
+            送信者を表す文字列（"moogle", "chocobo-N", "chocobo", "unknown"）
+        """
+        msg_type = message_data.get("type", "unknown")
+        child_id = message_data.get("child_id")
+        
+        if msg_type == "task":
+            return "moogle"
+        elif msg_type == "report":
+            return f"chocobo-{child_id}" if child_id is not None else "chocobo"
+        elif msg_type == "status":
+            return f"chocobo-{child_id}" if child_id is not None else "chocobo"
+        elif msg_type == "shutdown":
+            return "moogle"
+        else:
+            return "unknown"
     
     def get_display_content(self) -> str:
         """表示用の内容を取得（task_id の内容をそのまま返す）"""

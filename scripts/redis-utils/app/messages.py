@@ -117,6 +117,48 @@ class TaskMessage(BaseMessage):
         if not self.task_id:
             self.task_id = generate_uuid_session_id()
     
+    @property
+    def instruction(self) -> str:
+        """
+        prompt のエイリアスプロパティ
+        
+        エージェント定義では instruction フィールドを使用するため、
+        互換性のために prompt と同じ値を返す。
+        
+        Returns:
+            タスク指示内容（prompt と同一）
+        """
+        return self.prompt
+    
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "TaskMessage":
+        """
+        辞書からインスタンスを生成
+        
+        instruction フィールドが存在する場合、prompt にマッピングする。
+        両方存在する場合は instruction を優先する。
+        
+        Args:
+            data: メッセージデータの辞書
+        
+        Returns:
+            TaskMessage インスタンス
+        """
+        # データをコピーして操作
+        filtered_data = {k: v for k, v in data.items() if k != "type"}
+        
+        # instruction → prompt マッピング
+        if "instruction" in filtered_data:
+            instruction_value = filtered_data.pop("instruction")
+            # instruction を優先（prompt が無い場合、または両方ある場合）
+            if "prompt" not in filtered_data or filtered_data.get("prompt") == "":
+                filtered_data["prompt"] = instruction_value
+            else:
+                # 両方存在する場合も instruction を優先
+                filtered_data["prompt"] = instruction_value
+        
+        return cls(**filtered_data)
+    
     @classmethod
     def create(
         cls,
