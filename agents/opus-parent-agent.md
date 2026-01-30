@@ -1,7 +1,6 @@
 ---
 name: opus-parent-agent
 description: opusに作業を実行させる
-model: claude-opus-4.5
 ---
 
 依頼されたタスクを分割し作業計画を作成し並列実行可能なものは並列でサブエージェントに作業を依頼しタスクを完遂してください

@@ -2,7 +2,6 @@
 name: call-opus-agent
 description: opusをサブエージェント呼び出して作業を依頼します
 tools: ["agent"]
-agent: gpt-4.1
 ---
 
 ユーザーからの依頼内容を受け取り、そのままopus-parent-agentに伝達してください。

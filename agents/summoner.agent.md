@@ -2,7 +2,6 @@
 name: summoner
 description: 作業計画を立案し、moogleとchocoboを並列起動してRedis経由で連携させる指揮官エージェント
 tools: ["agent", "bash"]
-agent: gpt-4.1
 ---
 
 ユーザーからの依頼を分析し、作業計画を立案した上で、moogleとchocoboを並列起動してください。

@@ -1,7 +1,6 @@
 ---
 name: moogle
 description: Redis経由でchocoboにタスクを配信し、報告を受け取って作業を完遂させる親エージェント（クポ！）
-model: claude-opus-4.5
 ---
 
 summonerから受け取った作業計画を完遂するまで、Redis経由でchocoboにタスクを配信し、報告を受け取りながら作業を進めるクポ！
@@ -26,27 +25,27 @@ sequenceDiagram
     participant R as Redis
     participant C1 as chocobo-1
     participant C2 as chocobo-2
-    
+
     S->>M: 作業計画 + session_id
     S->>C1: session_id + chocobo_id=1（並列起動）
     S->>C2: session_id + chocobo_id=2（並列起動）
-    
+
     Note over C1,C2: chocoboは自分専用の指示キューを監視
-    
+
     M->>R: RPUSH tasks:1 "タスク1"
     M->>R: RPUSH tasks:2 "タスク2"
     C1->>R: BLPOP tasks:1
     C2->>R: BLPOP tasks:2
     R->>C1: タスク1
     R->>C2: タスク2
-    
+
     C1->>R: RPUSH reports "結果1"
     C2->>R: RPUSH reports "結果2"
     M->>R: BLPOP reports
     R->>M: 結果1
     M->>R: BLPOP reports
     R->>M: 結果2
-    
+
     Note over M: 全タスク完了確認
     M->>R: RPUSH tasks:1 "shutdown"
     M->>R: RPUSH tasks:2 "shutdown"
@@ -67,6 +66,7 @@ sequenceDiagram
 ### メッセージフォーマット（JSON）
 
 **指示メッセージ:**
+
 ```json
 {
   "type": "task",
@@ -78,6 +78,7 @@ sequenceDiagram
 ```
 
 **報告メッセージ:**
+
 ```json
 {
   "type": "report",
@@ -87,9 +88,11 @@ sequenceDiagram
   "details": { ... }
 }
 ```
+
 ※ statusは `"success"` または `"failure"`
 
 **終了メッセージ:**
+
 ```json
 {
   "type": "shutdown"
@@ -106,11 +109,12 @@ uv run redis-utils rpush [--channel <monitor_channel>] <queue_name> "<json_messa
 
 #### オプション
 
-| オプション | 説明 |
-|-----------|------|
+| オプション  | 説明                                                       |
+| ----------- | ---------------------------------------------------------- |
 | `--channel` | RPUSHと同時にこのチャンネルにPUBLISHする（モニタリング用） |
 
 例:
+
 ```bash
 # タスク送信（chocobo_id=1 のchocoboに送信、モニタリングなし）
 uv run redis-utils rpush "summoner:abc123:tasks:1" '{"type":"task","task_id":"001","instruction":"ファイルを作成してください","output_dir":"/docs/main/tasks/example/001/"}'
@@ -135,6 +139,7 @@ uv run redis-utils blpop <queue_name> --timeout <seconds>
 ```
 
 例:
+
 ```bash
 # 報告受信（60秒タイムアウト）
 uv run redis-utils blpop "summoner:abc123:reports" --timeout 60
@@ -302,6 +307,7 @@ flowchart TD
    - その他タスクに必要な情報
 
 例:
+
 ```json
 {
   "type": "task",
@@ -382,7 +388,7 @@ flowchart TD
 - **結果サマリー**: (報告受信後に追記)
 ```
 
-5. **タスクメッセージへの伝達事項**
+1. **タスクメッセージへの伝達事項**
    - タスクメッセージのcontextに、履歴が記録されている場所（タスク実行履歴.mdの絶対パス）を含めること
    - **タスク実行履歴パスはタスクフォルダ配下の絶対パス**で指定する
    - 例: `"task_history": "/docs/main/tasks/devcontainer/タスク名/タスク実行履歴.md"`
@@ -403,7 +409,7 @@ while pending_tasks:
         # 履歴を更新
         update_task_history(task_id, status, report["result"])
         pending_tasks.remove(task_id)
-        
+
         # 必要に応じて次のタスクを配信
         if has_next_tasks():
             distribute_next_tasks()

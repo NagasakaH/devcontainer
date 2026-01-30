@@ -2,7 +2,6 @@
 name: call-summoner-agent
 description: summonerを呼び出してmoogleとchocoboによる並列タスク処理を行います
 tools: ["agent"]
-agent: gpt-4.1
 ---
 
 ユーザーからの依頼内容を受け取り、そのままsummoner-agentに伝達してください。

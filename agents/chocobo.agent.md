@@ -1,7 +1,6 @@
 ---
 name: chocobo
 description: summonerから起動され、Redisキューで指示を受けて作業を実行するエージェント（クエッ！）
-model: claude-opus-4.5
 ---
 
 summonerから起動され、Redisキューで指示を待ち、作業を実行します（クエッ！）
@@ -32,12 +31,13 @@ stateDiagram-v2
 
 ### キュー名
 
-| キュー種別 | キュー名 | 操作 | 説明 |
-|-----------|----------|------|------|
+| キュー種別 | キュー名                                   | 操作  | 説明                     |
+| ---------- | ------------------------------------------ | ----- | ------------------------ |
 | 指示キュー | `summoner:{session_id}:tasks:{chocobo_id}` | BLPOP | **自分専用**の指示を受信 |
-| 報告キュー | `summoner:{session_id}:reports` | RPUSH | 全chocoboが共有して報告 |
+| 報告キュー | `summoner:{session_id}:reports`            | RPUSH | 全chocoboが共有して報告  |
 
-> **重要**: 
+> **重要**:
+>
 > - 指示キューは各chocobo専用です。**他のchocoboの指示キューを監視してはいけません**
 > - 報告キューは全chocoboで共有するため、`task_id`で自分のタスクを識別します
 
@@ -75,6 +75,7 @@ stateDiagram-v2
 ```
 
 `status`の値:
+
 - `success`: 作業成功
 - `failure`: 作業失敗
 
@@ -117,6 +118,7 @@ uv run python -m app.cli.blpop summoner:{session_id}:tasks:{chocobo_id} --timeou
 ```
 
 **主要オプション:**
+
 - `--timeout`: 待機時間（秒）。0=無限待機、タイムアウトしたら再度BLPOPを実行
 - `--parse`: メッセージをパースして詳細表示
 - `--continuous`, `-c`: 連続受信モード（Ctrl+Cで停止）
@@ -184,12 +186,12 @@ sender.send_report(report_queue, report)
 
 summonerから以下の情報を受け取ります：
 
-| 情報 | 説明 | 例 |
-|------|------|-----|
-| `session_id` | セッション識別子 | `abc123` |
-| `chocobo_id` | 自分のID（キュー識別用） | `chocobo-001` |
+| 情報         | 説明                              | 例                                  |
+| ------------ | --------------------------------- | ----------------------------------- |
+| `session_id` | セッション識別子                  | `abc123`                            |
+| `chocobo_id` | 自分のID（キュー識別用）          | `chocobo-001`                       |
 | 指示キュー名 | BLPOPで監視する**自分専用**キュー | `summoner:abc123:tasks:chocobo-001` |
-| 報告キュー名 | RPUSHで報告するキュー（共有） | `summoner:abc123:reports` |
+| 報告キュー名 | RPUSHで報告するキュー（共有）     | `summoner:abc123:reports`           |
 
 ### メインループ
 
@@ -208,14 +210,14 @@ summonerから以下の情報を受け取ります：
 指示メッセージ内の情報は、**moogleが既に確認・展開済みの信頼できる値**です。
 chocoboはこれらをそのまま使用し、再確認や再展開を行いません。
 
-| フィールド | 説明 | 例 |
-|-----------|------|-----|
-| `task_id` | タスク識別子（報告時に必須） | `001` |
-| `instruction` | 具体的な作業指示 | `○○を実装してください` |
-| `output_dir` | 作業報告を出力する絶対パス | `/docs/main/tasks/.../001-1/` |
-| `context.work_dir` | 作業ディレクトリの絶対パス | `/workspaces/devcontainer` |
-| `context.docs_root` | DOCS_ROOTの値（または `null`） | `/docs` |
-| `context.task_name` | タスク名 | `機能実装` |
+| フィールド          | 説明                           | 例                            |
+| ------------------- | ------------------------------ | ----------------------------- |
+| `task_id`           | タスク識別子（報告時に必須）   | `001`                         |
+| `instruction`       | 具体的な作業指示               | `○○を実装してください`        |
+| `output_dir`        | 作業報告を出力する絶対パス     | `/docs/main/tasks/.../001-1/` |
+| `context.work_dir`  | 作業ディレクトリの絶対パス     | `/workspaces/devcontainer`    |
+| `context.docs_root` | DOCS_ROOTの値（または `null`） | `/docs`                       |
+| `context.task_name` | タスク名                       | `機能実装`                    |
 
 ### フォルダ構造
 
