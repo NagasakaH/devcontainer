@@ -31,10 +31,6 @@
     {
       "name": "fd",
       "options": {}
-    },
-    {
-      "name": "redis-utils",
-      "options": {}
     }
   ],
   "publicFeatures": {

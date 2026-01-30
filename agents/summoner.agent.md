@@ -76,11 +76,14 @@ pwd
 
 ### Step 2: オーケストレーション初期化
 
-orchestration-initスキルを使用してセッション情報を初期化します：
+orchestration-initはredis-utils CLIで初期化します：
 
 ```bash
+# scripts/redis-utilsディレクトリに移動
+cd /workspaces/devcontainer/scripts/redis-utils
+
 # オーケストレーション初期化（session_id、キュー名、モニタリングチャンネルを取得）
-python skills/orchestration-init/scripts/init_orchestration.py --summoner-mode --max-children 3 --json > /tmp/orch_config.json
+python -m app.cli.init_orch --summoner-mode --max-children 3 --json > /tmp/orch_config.json
 
 # セッション情報を取得
 SESSION_ID=$(jq -r .session_id /tmp/orch_config.json)
@@ -171,15 +174,18 @@ cat /tmp/orch_config.json
 | 2 | summoner:{session_id}:tasks:2 |
 | ... | ... |
 
-### Redisスキルの使い方
+### redis-utils CLIの使い方
+
+**redis-utilsはscripts/redis-utilsにインストール済みで、CLIとして利用できます。**
+**コマンド実行前に `cd /workspaces/devcontainer/scripts/redis-utils` でディレクトリを移動してください。**
 
 **特定のchocoboに指示を送信（RPUSH + モニタリング）:**
 ```bash
 # chocobo-1に指示を送る場合（モニタリングチャンネルへも同時publish）
-python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:{session_id}:monitor" "summoner:{session_id}:tasks:1" "<JSON形式の指示>"
+python -m app.cli.rpush --channel "summoner:{session_id}:monitor" "summoner:{session_id}:tasks:1" '<JSON形式の指示>'
 
 # chocobo-2に指示を送る場合
-python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:{session_id}:monitor" "summoner:{session_id}:tasks:2" "<JSON形式の指示>"
+python -m app.cli.rpush --channel "summoner:{session_id}:monitor" "summoner:{session_id}:tasks:2" '<JSON形式の指示>'
 ````
 
 > **注意**: `--channel` オプションを指定すると、RPUSHと同時にモニタリングチャンネルへPUBLISHされます。
@@ -188,7 +194,7 @@ python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:{session_i
 **報告を受信（BLPOP）:**
 
 ```bash
-python skills/redis-blpop-receiver/scripts/blpop_receiver.py summoner:{session_id}:reports --timeout 300
+python -m app.cli.blpop summoner:{session_id}:reports --timeout 300
 ```
 
 chocoboからの報告を待ち、全タスク完了後に最終報告をまとめてください。
@@ -219,19 +225,22 @@ chocoboからの報告を待ち、全タスク完了後に最終報告をまと�
 > **重要**: あなたは `summoner:{session_id}:tasks:{chocobo_id}` のみを監視してください。
 > 他のchocoboの指示キューは監視しないでください。
 
-### Redisスキルの使い方
+### redis-utils CLIの使い方
+
+**redis-utilsはscripts/redis-utilsにインストール済みで、CLIとして利用できます。**
+**コマンド実行前に `cd /workspaces/devcontainer/scripts/redis-utils` でディレクトリを移動してください。**
 
 **自分専用の指示キューから受信（BLPOP）:**
 
 ```bash
-python skills/redis-blpop-receiver/scripts/blpop_receiver.py summoner:{session_id}:tasks:{chocobo_id} --timeout 300
+python -m app.cli.blpop summoner:{session_id}:tasks:{chocobo_id} --timeout 300
 ```
 
 **報告を送信（RPUSH + モニタリング）:**
 
 ```bash
 # モニタリングチャンネルへも同時publish
-python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:{session_id}:monitor" summoner:{session_id}:reports "<JSON形式の報告>"
+python -m app.cli.rpush --channel "summoner:{session_id}:monitor" summoner:{session_id}:reports '<JSON形式の報告>'
 ```
 
 > **注意**: `--channel` オプションはオプショナルです。モニタリングが不要な場合は省略できます。

@@ -86,21 +86,96 @@ stateDiagram-v2
 }
 ```
 
-## Redis操作スキルの使い方
+## redis-utils CLIの使い方
+
+**redis-utilsは`scripts/redis-utils`にインストール済みで、CLIとして利用できます。**
+
+### CLIの実行方法
+
+`scripts/redis-utils`ディレクトリで以下のいずれかの方法で実行できます：
+
+```bash
+# 方法1: uv run でモジュール実行（推奨）
+cd /workspaces/devcontainer/scripts/redis-utils
+uv run python -m app.cli.blpop <list_name> [options]
+uv run python -m app.cli.rpush <list_name> <message>
+
+# 方法2: インストール後のコマンド（パッケージインストール済みの場合）
+redis-blpop <list_name> [options]
+redis-rpush <list_name> <message>
+
+# 方法3: 統合CLI
+redis-util blpop <list_name> [options]
+redis-util rpush <list_name> <message>
+```
 
 ### 指示の受信（BLPOP）
 
 ```bash
-python skills/redis-blpop-receiver/scripts/blpop_receiver.py summoner:{session_id}:tasks:{chocobo_id} --timeout 60
+# タイムアウト60秒で待機
+uv run python -m app.cli.blpop summoner:{session_id}:tasks:{chocobo_id} --timeout 60
 ```
 
-- `--timeout`: 待機時間（秒）。タイムアウトしたら再度BLPOPを実行
+**主要オプション:**
+- `--timeout`: 待機時間（秒）。0=無限待機、タイムアウトしたら再度BLPOPを実行
+- `--parse`: メッセージをパースして詳細表示
+- `--continuous`, `-c`: 連続受信モード（Ctrl+Cで停止）
 - **注意**: 必ず自分専用のキュー（`chocobo_id`付き）を監視すること
 
 ### 報告の送信（RPUSH）
 
 ```bash
-python skills/redis-rpush-sender/scripts/rpush.py summoner:{session_id}:reports '{"type":"report","task_id":"001","status":"success","result":"完了しました"}'
+# 単一メッセージ送信
+uv run python -m app.cli.rpush summoner:{session_id}:reports '{"type":"report","task_id":"001","status":"success","result":"完了しました"}'
+
+# Pub/Sub同時送信（モニターチャンネルがある場合）
+uv run python -m app.cli.rpush --channel summoner:{session_id}:monitor summoner:{session_id}:reports '{"type":"report",...}'
+```
+
+## Python APIの使い方（参考）
+
+CLIではなくPython APIを使用する場合の例です。`scripts/redis-utils`ディレクトリで実行します。
+
+### タスク受信
+
+```python
+from app.receiver import receive_task, receive_any_message
+from app.messages import parse_message
+
+# タスクメッセージを受信（自動タイプフィルタリング）
+task_queue = f"summoner:{session_id}:tasks:{chocobo_id}"
+task = receive_task(task_queue, timeout=60)
+if task:
+    print(f"Task ID: {task.task_id}")
+    print(f"Prompt: {task.prompt}")
+```
+
+### レポート送信
+
+```python
+from app.sender import RedisSender
+from app.messages import ReportMessage
+
+sender = RedisSender()
+report_queue = f"summoner:{session_id}:reports"
+
+# 成功レポート
+report = ReportMessage.success(
+    task_id="001",
+    session_id=session_id,
+    child_id=chocobo_id,
+    result={"data": "処理結果"},
+)
+sender.send_report(report_queue, report)
+
+# 失敗レポート
+report = ReportMessage.failure(
+    task_id="001",
+    session_id=session_id,
+    child_id=chocobo_id,
+    error="エラーメッセージ",
+)
+sender.send_report(report_queue, report)
 ```
 
 ## chocoboの動作フロー

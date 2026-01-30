@@ -96,12 +96,12 @@ sequenceDiagram
 }
 ```
 
-## Redis操作スキル
+## redis-utils CLIの使い方
 
-### 送信（RPUSH）- redis-rpush-senderスキル
+### 送信（RPUSH）
 
 ```bash
-python skills/redis-rpush-sender/scripts/rpush.py [--channel <monitor_channel>] <queue_name> "<json_message>"
+uv run redis-utils rpush [--channel <monitor_channel>] <queue_name> "<json_message>"
 ```
 
 #### オプション
@@ -113,31 +113,31 @@ python skills/redis-rpush-sender/scripts/rpush.py [--channel <monitor_channel>] 
 例:
 ```bash
 # タスク送信（chocobo_id=1 のchocoboに送信、モニタリングなし）
-python skills/redis-rpush-sender/scripts/rpush.py "summoner:abc123:tasks:1" '{"type":"task","task_id":"001","instruction":"ファイルを作成してください","output_dir":"/docs/main/tasks/example/001/"}'
+uv run redis-utils rpush "summoner:abc123:tasks:1" '{"type":"task","task_id":"001","instruction":"ファイルを作成してください","output_dir":"/docs/main/tasks/example/001/"}'
 
 # タスク送信（モニタリングチャンネルへも同時publish）
-python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:abc123:monitor" "summoner:abc123:tasks:1" '{"type":"task","task_id":"001","instruction":"ファイルを作成してください","output_dir":"/docs/main/tasks/example/001/"}'
+uv run redis-utils rpush --channel "summoner:abc123:monitor" "summoner:abc123:tasks:1" '{"type":"task","task_id":"001","instruction":"ファイルを作成してください","output_dir":"/docs/main/tasks/example/001/"}'
 
 # タスク送信（chocobo_id=2 のchocoboに送信）
-python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:abc123:monitor" "summoner:abc123:tasks:2" '{"type":"task","task_id":"002","instruction":"テストを作成してください","output_dir":"/docs/main/tasks/example/002/"}'
+uv run redis-utils rpush --channel "summoner:abc123:monitor" "summoner:abc123:tasks:2" '{"type":"task","task_id":"002","instruction":"テストを作成してください","output_dir":"/docs/main/tasks/example/002/"}'
 
 # シャットダウン送信（各chocobo専用キューに送信）
-python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:abc123:monitor" "summoner:abc123:tasks:1" '{"type":"shutdown"}'
-python skills/redis-rpush-sender/scripts/rpush.py --channel "summoner:abc123:monitor" "summoner:abc123:tasks:2" '{"type":"shutdown"}'
+uv run redis-utils rpush --channel "summoner:abc123:monitor" "summoner:abc123:tasks:1" '{"type":"shutdown"}'
+uv run redis-utils rpush --channel "summoner:abc123:monitor" "summoner:abc123:tasks:2" '{"type":"shutdown"}'
 ```
 
 > **注意**: `--channel` オプションはオプショナルです。モニタリングが不要な場合や、モニタリングチャンネル名が提供されていない場合は省略できます。
 
-### 受信（BLPOP）- redis-blpop-receiverスキル
+### 受信（BLPOP）
 
 ```bash
-python skills/redis-blpop-receiver/scripts/blpop_receiver.py <queue_name> --timeout <seconds>
+uv run redis-utils blpop <queue_name> --timeout <seconds>
 ```
 
 例:
 ```bash
 # 報告受信（60秒タイムアウト）
-python skills/redis-blpop-receiver/scripts/blpop_receiver.py "summoner:abc123:reports" --timeout 60
+uv run redis-utils blpop "summoner:abc123:reports" --timeout 60
 ```
 
 ## 補足事項の受け取りと処理
@@ -425,8 +425,8 @@ while pending_tasks:
 
 ```bash
 # chocoboが2台の場合（chocobo_id=1, 2）
-python skills/redis-rpush-sender/scripts/rpush.py "summoner:{session_id}:tasks:1" '{"type":"shutdown"}'
-python skills/redis-rpush-sender/scripts/rpush.py "summoner:{session_id}:tasks:2" '{"type":"shutdown"}'
+uv run redis-utils rpush "summoner:{session_id}:tasks:1" '{"type":"shutdown"}'
+uv run redis-utils rpush "summoner:{session_id}:tasks:2" '{"type":"shutdown"}'
 ```
 
 ## ドキュメント出力ルール
@@ -666,7 +666,7 @@ mkdir -p /docs/main/tasks/devcontainer/機能追加タスク/001-2/
 
 # 6. Redis経由でタスクを配信（各chocoboの専用キューに送信 + モニタリング）
 # chocobo_id=1 に送信
-python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:1" '{
+uv run redis-utils rpush --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:1" '{
   "type": "task",
   "task_id": "001-1",
   "instruction": "READMEを作成してください",
@@ -680,7 +680,7 @@ python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}"
 }'
 
 # chocobo_id=2 に送信
-python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:2" '{
+uv run redis-utils rpush --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:2" '{
   "type": "task",
   "task_id": "001-2",
   "instruction": "テストを作成してください",
@@ -694,15 +694,15 @@ python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}"
 }'
 
 # 7. 報告を待機（報告キューは全chocobo共有）
-python skills/redis-blpop-receiver/scripts/blpop_receiver.py "summoner:${SESSION_ID}:reports" --timeout 300
+uv run redis-utils blpop "summoner:${SESSION_ID}:reports" --timeout 300
 # → 1つ目の報告を受信
 
-python skills/redis-blpop-receiver/scripts/blpop_receiver.py "summoner:${SESSION_ID}:reports" --timeout 300
+uv run redis-utils blpop "summoner:${SESSION_ID}:reports" --timeout 300
 # → 2つ目の報告を受信
 
 # 8. 全タスク完了後、各chocoboの専用キューにシャットダウンメッセージを送信
-python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:1" '{"type":"shutdown"}'
-python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:2" '{"type":"shutdown"}'
+uv run redis-utils rpush --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:1" '{"type":"shutdown"}'
+uv run redis-utils rpush --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:2" '{"type":"shutdown"}'
 ```
 
 #### DOCS_ROOT未設定の場合
@@ -714,7 +714,7 @@ MONITOR_CHANNEL="summoner:abc123:monitor"
 # DOCS_ROOT未設定の場合はドキュメント出力をスキップクポ
 
 # タスクを各chocoboの専用キューに配信（モニタリング付き）
-python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:1" '{
+uv run redis-utils rpush --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:1" '{
   "type": "task",
   "task_id": "001",
   "instruction": "機能を実装してください",
@@ -728,10 +728,10 @@ python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}"
 }'
 
 # 報告を待機
-python skills/redis-blpop-receiver/scripts/blpop_receiver.py "summoner:${SESSION_ID}:reports" --timeout 300
+uv run redis-utils blpop "summoner:${SESSION_ID}:reports" --timeout 300
 
 # 各chocoboの専用キューにシャットダウン送信
-python skills/redis-rpush-sender/scripts/rpush.py --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:1" '{"type":"shutdown"}'
+uv run redis-utils rpush --channel "${MONITOR_CHANNEL}" "summoner:${SESSION_ID}:tasks:1" '{"type":"shutdown"}'
 ```
 
 #### モニタリングチャンネルが提供されていない場合
@@ -743,7 +743,7 @@ SESSION_ID="abc123"
 # MONITOR_CHANNEL が未提供の場合
 
 # モニタリングなしでタスクを配信
-python skills/redis-rpush-sender/scripts/rpush.py "summoner:${SESSION_ID}:tasks:1" '{
+uv run redis-utils rpush "summoner:${SESSION_ID}:tasks:1" '{
   "type": "task",
   "task_id": "001",
   "instruction": "機能を実装してください",
