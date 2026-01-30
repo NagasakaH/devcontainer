@@ -27,6 +27,8 @@ from rich.text import Text
 
 from .services.session_scanner import SessionInfo, SessionScanner
 from .services.pubsub_listener import MonitorMessage, PubSubListener
+from .services.log_storage import LogStorage, LogEntry
+from .services.error_logger import log_error
 from ..config import get_default_config
 
 
@@ -53,31 +55,108 @@ def get_type_emoji(msg_type: str) -> str:
 
 
 class SessionList(Static):
-    """セッション一覧ウィジェット（表示専用）"""
+    """セッション一覧ウィジェット（選択可能）"""
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._sessions: list[SessionInfo] = []
+        self._log_sessions: list[str] = []  # ログのみ存在するセッションID
     
     def compose(self) -> ComposeResult:
         yield ListView(id="session-listview")
     
-    def update_sessions(self, sessions: list[SessionInfo]) -> None:
-        """セッション一覧を更新"""
-        self._sessions = sessions
-        listview = self.query_one("#session-listview", ListView)
-        listview.clear()
+    def update_sessions(
+        self, 
+        sessions: list[SessionInfo], 
+        log_only_sessions: Optional[list[str]] = None
+    ) -> None:
+        """セッション一覧を更新
         
+        差分更新方式を採用し、DuplicateIdsエラーを回避。
+        既存ウィジェットは再利用し、不要なものだけ削除、新規は追加。
+        
+        Args:
+            sessions: アクティブなセッション情報リスト
+            log_only_sessions: ログのみ存在するセッションID（アクティブでない）
+        """
+        self._sessions = sessions
+        
+        # アクティブセッションのIDセットを作成（重複チェック用）
+        active_session_ids = {s.session_id for s in sessions}
+        
+        # log_only_sessionsからアクティブセッションを除外
+        self._log_sessions = [
+            sid for sid in (log_only_sessions or [])
+            if sid not in active_session_ids
+        ]
+        
+        listview = self.query_one("#session-listview", ListView)
+        
+        # 既存ウィジェットのIDを収集
+        existing_widget_ids: set[str] = set()
+        for item in listview.children:
+            if item.id:
+                existing_widget_ids.add(item.id)
+        
+        # 今回必要なウィジェットIDを計算
+        required_widget_ids: set[str] = set()
+        
+        # アクティブセッション用のIDを追加
         for session in sessions:
-            # セッションIDを短縮表示
-            short_id = session.session_id[:12] + "..." if len(session.session_id) > 15 else session.session_id
-            mode_emoji = "🔥" if session.mode == "summoner" else "📋"
-            item = ListItem(Label(f"{mode_emoji} {short_id}"))
-            listview.append(item)
+            required_widget_ids.add(f"active-{session.session_id}")
+        
+        # ログのみセッション用のIDを追加
+        for session_id in self._log_sessions:
+            required_widget_ids.add(f"log-{session_id}")
+        
+        # 不要なウィジェットを削除（差分：既存にあるが今回は不要）
+        ids_to_remove = existing_widget_ids - required_widget_ids
+        for widget_id in ids_to_remove:
+            try:
+                widget = listview.query_one(f"#{widget_id}", ListItem)
+                widget.remove()
+            except Exception:
+                pass  # ウィジェットが見つからない場合は無視
+        
+        # 新規ウィジェットを追加（差分：今回必要だが既存にない）
+        ids_to_add = required_widget_ids - existing_widget_ids
+        
+        # アクティブなセッション（新規のみ追加）
+        for session in sessions:
+            widget_id = f"active-{session.session_id}"
+            if widget_id in ids_to_add:
+                short_id = session.session_id[:12] + "..." if len(session.session_id) > 15 else session.session_id
+                mode_emoji = "🔥" if session.mode == "summoner" else "📋"
+                item = ListItem(Label(f"{mode_emoji} {short_id}"), id=widget_id)
+                listview.append(item)
+        
+        # ログのみ存在するセッション（新規のみ追加）
+        for session_id in self._log_sessions:
+            widget_id = f"log-{session_id}"
+            if widget_id in ids_to_add:
+                short_id = session_id[:12] + "..." if len(session_id) > 15 else session_id
+                item = ListItem(Label(f"📁 {short_id}"), id=widget_id)
+                listview.append(item)
     
     def get_session_count(self) -> int:
         """セッション数を取得"""
-        return len(self._sessions)
+        return len(self._sessions) + len(self._log_sessions)
+    
+    def get_session_id_by_index(self, index: int) -> Optional[str]:
+        """インデックスからセッションIDを取得"""
+        if index < 0:
+            return None
+        
+        # アクティブセッション
+        if index < len(self._sessions):
+            return self._sessions[index].session_id
+        
+        # ログのみセッション
+        log_index = index - len(self._sessions)
+        if log_index < len(self._log_sessions):
+            return self._log_sessions[log_index]
+        
+        return None
 
 
 class QueueStatus(Static):
@@ -113,19 +192,23 @@ class MessageStream(Static):
     def compose(self) -> ComposeResult:
         yield RichLog(highlight=True, markup=True, wrap=True, id="message-log")
     
-    def add_message(self, msg: MonitorMessage, session_id: str = "") -> None:
-        """メッセージを追加（[type]sender:message形式で表示）"""
+    def add_message(self, msg: MonitorMessage, session_id: str = "") -> Optional[tuple[str, str, str]]:
+        """メッセージを追加（[type]sender:message形式で表示）
+        
+        Returns:
+            成功時は (msg_type, sender, content) のタプル、失敗時はNone
+        """
         self._messages.append(msg)
         log = self.query_one("#message-log", RichLog)
         
         # メッセージ内容をパース
         if not isinstance(msg.parsed_data, dict):
-            return
+            return None
         
         # "message" 要素のみを対象とする
         message_content = msg.parsed_data.get("message")
         if not message_content:
-            return
+            return None
         
         # messageの中身をパース（JSON形式）
         try:
@@ -134,10 +217,10 @@ class MessageStream(Static):
             else:
                 message_data = message_content
         except (json.JSONDecodeError, TypeError):
-            return
+            return None
         
         if not isinstance(message_data, dict):
-            return
+            return None
         
         # typeを取得
         msg_type = message_data.get("type", "unknown")
@@ -158,7 +241,8 @@ class MessageStream(Static):
         # メッセージ文言を決定
         max_length = 50
         if msg_type == "task":
-            content = message_data.get("prompt", "")
+            # instructionまたはpromptをチェック（両方に対応）
+            content = message_data.get("instruction", "") or message_data.get("prompt", "")
         elif msg_type == "report":
             status = message_data.get("status", "")
             if status == "success":
@@ -174,8 +258,7 @@ class MessageStream(Static):
         
         # 文字列に変換し、長い場合は切り詰め
         content = str(content) if content else ""
-        if len(content) > max_length:
-            content = content[:max_length] + "..."
+        display_content = content[:max_length] + "..." if len(content) > max_length else content
         
         # 色と絵文字を取得
         color = get_type_color(msg_type)
@@ -187,9 +270,53 @@ class MessageStream(Static):
         text.append(f"[{msg_type}]", style=f"bold {color}")
         text.append(f"{sender}", style="yellow")
         text.append(":", style="white")
-        text.append(content, style=color)
+        text.append(display_content, style="white")
         
         log.write(text)
+        
+        # ログ保存用に情報を返す
+        return (msg_type, sender, content)
+    
+    def add_log_entry(self, entry: LogEntry) -> None:
+        """ログエントリを表示（過去ログ読み込み用）"""
+        log = self.query_one("#message-log", RichLog)
+        
+        msg_type = entry.msg_type
+        sender = entry.sender
+        content = entry.content
+        
+        # 長い場合は切り詰め
+        max_length = 50
+        display_content = content[:max_length] + "..." if len(content) > max_length else content
+        
+        # 色と絵文字を取得
+        color = get_type_color(msg_type)
+        emoji = get_type_emoji(msg_type)
+        
+        # メッセージを整形: [type]sender:message (with timestamp)
+        text = Text()
+        text.append(f"{emoji} ", style="bold")
+        text.append(f"[{msg_type}]", style=f"bold {color}")
+        text.append(f"{sender}", style="yellow")
+        text.append(":", style="white")
+        text.append(display_content, style="white")
+        text.append(f" ({entry.timestamp[:19]})", style="dim")  # タイムスタンプを追加
+        
+        log.write(text)
+    
+    def show_session_header(self, session_id: str, message_count: int) -> None:
+        """セッションヘッダーを表示"""
+        log = self.query_one("#message-log", RichLog)
+        
+        short_id = session_id[:12] + "..." if len(session_id) > 15 else session_id
+        
+        header_text = Text()
+        header_text.append("\n" + "═" * 40 + "\n", style="dim cyan")
+        header_text.append(f"📂 Session: {short_id}\n", style="bold cyan")
+        header_text.append(f"📝 {message_count} messages loaded from log\n", style="dim")
+        header_text.append("═" * 40 + "\n", style="dim cyan")
+        
+        log.write(header_text)
     
     def clear_messages(self) -> None:
         """メッセージをクリア"""
@@ -251,14 +378,14 @@ class RedisMonitorApp(App):
     
     CSS = """
     Screen {
-        background: $surface;
+        background: transparent;
     }
     
     /* メインコンテナ - 画面全体を埋める */
     #main-container {
         width: 100%;
         height: 1fr;
-        background: $surface;
+        background: transparent;
     }
     
     /* 左パネル - セッション一覧とキューステータス */
@@ -269,7 +396,7 @@ class RedisMonitorApp(App):
         max-width: 50;
         border: round $primary;
         padding: 1;
-        background: $surface;
+        background: transparent;
         color: $text;
     }
     
@@ -279,7 +406,7 @@ class RedisMonitorApp(App):
         height: 100%;
         border: round $primary;
         padding: 1;
-        background: $surface;
+        background: transparent;
         color: $text;
     }
     
@@ -288,7 +415,7 @@ class RedisMonitorApp(App):
         text-style: bold;
         color: $primary-lighten-2;
         padding: 0 0 1 0;
-        background: $surface;
+        background: transparent;
     }
     
     /* 区切り線 */
@@ -300,7 +427,7 @@ class RedisMonitorApp(App):
     SessionList {
         height: auto;
         max-height: 60%;
-        background: $surface;
+        background: transparent;
         display: none;
     }
     
@@ -313,13 +440,13 @@ class RedisMonitorApp(App):
         max-height: 100%;
         border: solid $primary-darken-2;
         margin: 0 0 1 0;
-        background: $surface-darken-1;
+        background: transparent;
         color: $text;
     }
     
     #session-listview > ListItem {
         padding: 0 1;
-        background: $surface-darken-1;
+        background: transparent;
         color: $text;
     }
     
@@ -337,26 +464,26 @@ class RedisMonitorApp(App):
     QueueStatus {
         height: auto;
         padding: 1 0;
-        background: $surface;
+        background: transparent;
         color: $text;
     }
     
     QueueStatus Static {
-        background: $surface;
+        background: transparent;
         color: $text;
     }
     
     /* メッセージストリーム */
     MessageStream {
         height: 1fr;
-        background: $surface;
+        background: transparent;
     }
     
     #message-log {
         height: 100%;
         border: solid $primary-darken-2;
         scrollbar-gutter: stable;
-        background: $surface-darken-1;
+        background: transparent;
         color: $text;
     }
     
@@ -379,7 +506,7 @@ class RedisMonitorApp(App):
     .button-row {
         height: 3;
         margin: 1 0 0 0;
-        background: $surface;
+        background: transparent;
     }
     
     .button-row Button {
@@ -405,6 +532,8 @@ class RedisMonitorApp(App):
         self._listeners: dict[str, PubSubListener] = {}
         # 監視中のセッションID一覧
         self._monitored_sessions: set[str] = set()
+        # ログストレージ
+        self._log_storage = LogStorage()
     
     def compose(self) -> ComposeResult:
         yield Header()
@@ -465,9 +594,14 @@ class RedisMonitorApp(App):
         try:
             sessions = self._scanner.scan_sessions()
             
+            # ログのみ存在するセッションを検出
+            active_session_ids = {s.session_id for s in sessions}
+            log_sessions = self._log_storage.list_sessions()
+            log_only_sessions = [s for s in log_sessions if s not in active_session_ids]
+            
             # UI更新
             session_list = self.query_one("#session-list", SessionList)
-            session_list.update_sessions(sessions)
+            session_list.update_sessions(sessions, log_only_sessions)
             
             # 新規セッションを検出して接続
             current_session_ids = {s.session_id for s in sessions}
@@ -486,6 +620,7 @@ class RedisMonitorApp(App):
             status_bar.update_monitoring_count(len(self._monitored_sessions))
             
         except Exception as e:
+            log_error(e, "RedisMonitorApp._scan_and_connect")
             self.notify(f"Scan error: {e}", severity="error")
     
     def _connect_to_session(self, session: SessionInfo) -> None:
@@ -504,6 +639,11 @@ class RedisMonitorApp(App):
             self.notify(f"Connected: {short_id}", severity="information")
             
         except Exception as e:
+            log_error(
+                e,
+                "RedisMonitorApp._connect_to_session",
+                {"session_id": session.session_id, "channel": session.monitor_channel},
+            )
             self.notify(f"Connection failed: {e}", severity="error")
     
     def _disconnect_from_session(self, session_id: str) -> None:
@@ -572,7 +712,52 @@ class RedisMonitorApp(App):
             
             messages = listener.get_messages()
             for msg in messages:
-                message_stream.add_message(msg, session_id)
+                result = message_stream.add_message(msg, session_id)
+                
+                # ログに保存
+                if result:
+                    msg_type, sender, content = result
+                    self._log_storage.save_message(
+                        session_id=session_id,
+                        msg_type=msg_type,
+                        sender=sender,
+                        content=content,
+                        raw_data=msg.parsed_data,
+                    )
+    
+    @on(ListView.Selected, "#session-listview")
+    def handle_session_selected(self, event: ListView.Selected) -> None:
+        """セッション選択時のハンドラ"""
+        session_list = self.query_one("#session-list", SessionList)
+        
+        # 選択されたインデックスからセッションIDを取得
+        if event.list_view.index is not None:
+            session_id = session_list.get_session_id_by_index(event.list_view.index)
+            if session_id:
+                self._load_and_display_session_logs(session_id)
+    
+    def _load_and_display_session_logs(self, session_id: str) -> None:
+        """セッションのログを読み込んで表示"""
+        message_stream = self.query_one("#message-stream", MessageStream)
+        
+        # メッセージをクリア
+        message_stream.clear_messages()
+        
+        # ログを読み込み
+        entries = self._log_storage.load_messages(session_id)
+        
+        if entries:
+            # セッションヘッダーを表示
+            message_stream.show_session_header(session_id, len(entries))
+            
+            # 各エントリを表示
+            for entry in entries:
+                message_stream.add_log_entry(entry)
+            
+            self.notify(f"Loaded {len(entries)} messages", severity="information")
+        else:
+            short_id = session_id[:12] + "..." if len(session_id) > 15 else session_id
+            self.notify(f"No logs found for {short_id}", severity="warning")
     
     def _update_queue_status(self) -> None:
         """キューステータスを更新（全セッションの合計）"""

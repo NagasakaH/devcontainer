@@ -40,12 +40,21 @@ class MonitorMessage:
             except (json.JSONDecodeError, TypeError):
                 self.parsed_data = {"raw": self.raw_data}
         
-        # message フィールドから type と task_id を抽出
+        # message フィールドから type と表示内容を抽出
         if isinstance(self.parsed_data, dict):
             message_field = self.parsed_data.get("message")
             if isinstance(message_field, dict):
                 self.message_type = message_field.get("type", "unknown")
-                self.display_content = message_field.get("task_id", "")
+                # タイプに応じた表示内容を設定
+                if self.message_type == "task":
+                    # taskの場合はinstructionまたはpromptを使用
+                    self.display_content = message_field.get("instruction", "") or message_field.get("prompt", "")
+                elif self.message_type == "report":
+                    # reportの場合はresultを使用
+                    self.display_content = message_field.get("result", "")
+                else:
+                    # その他の場合はtask_idをフォールバック
+                    self.display_content = message_field.get("task_id", "")
             else:
                 # message フィールドがない場合はフォールバック
                 self.message_type = "unknown"
