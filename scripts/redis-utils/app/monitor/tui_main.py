@@ -5,6 +5,7 @@ Textualベースのターミナルユーザーインターフェース。
 すべてのアクティブセッションを自動監視し、メッセージをリアルタイムで表示。
 """
 
+import argparse
 import json
 from datetime import datetime
 from typing import Optional
@@ -206,9 +207,14 @@ class QueueStatus(Static):
 class MessageStream(Static):
     """メッセージストリームウィジェット"""
     
-    def __init__(self, **kwargs):
+    # クラス変数としてmax_lengthを保持（アプリから設定される）
+    default_max_length: int = 50
+    
+    def __init__(self, max_length: Optional[int] = None, **kwargs):
         super().__init__(**kwargs)
         self._messages: list[MonitorMessage] = []
+        # インスタンス固有のmax_length（Noneの場合は全文表示）
+        self._max_length = max_length if max_length is not None else MessageStream.default_max_length
     
     def compose(self) -> ComposeResult:
         yield RichLog(highlight=True, markup=True, wrap=True, id="message-log")
@@ -255,14 +261,18 @@ class MessageStream(Static):
         # typeを取得
         msg_type = message_data.get("type", "unknown")
         
-        # chocobo_idを取得（報告メッセージ用）
+        # chocobo_idを取得（報告メッセージ、タスクメッセージ両方で使用）
         # chocobo_id を優先、なければ child_id をフォールバック
         chocobo_id = message_data.get("chocobo_id") or message_data.get("child_id")
+        # shutdownメッセージの target_child_id も取得
+        target_child_id = message_data.get("target_child_id")
         
         # 送信者と受信者を決定
         if msg_type == "task":
             sender = "moogle"
-            receiver = f"chocobo-{target_chocobo_id}" if target_chocobo_id else "chocobo"
+            # キュー名から抽出したIDを優先、なければメッセージ内のchild_idを使用
+            task_target_id = target_chocobo_id or chocobo_id
+            receiver = f"chocobo-{task_target_id}" if task_target_id is not None else "chocobo"
         elif msg_type == "report":
             sender = f"chocobo-{chocobo_id}" if chocobo_id is not None else "chocobo"
             receiver = "moogle"
@@ -271,13 +281,15 @@ class MessageStream(Static):
             receiver = "moogle"
         elif msg_type == "shutdown":
             sender = "moogle"
-            receiver = f"chocobo-{target_chocobo_id}" if target_chocobo_id else "chocobo"
+            # キュー名から抽出したIDを優先、なければtarget_child_id、さらになければchild_idを使用
+            shutdown_target_id = target_chocobo_id or target_child_id or chocobo_id
+            receiver = f"chocobo-{shutdown_target_id}" if shutdown_target_id is not None else "chocobo"
         else:
             sender = "unknown"
             receiver = "unknown"
         
-        # メッセージ文言を決定
-        max_length = 50
+        # メッセージ文言を決定（Noneの場合は省略なし）
+        max_length = self._max_length
         if msg_type == "task":
             # instructionまたはpromptをチェック（両方に対応）
             content = message_data.get("instruction", "") or message_data.get("prompt", "")
@@ -296,7 +308,7 @@ class MessageStream(Static):
         
         # 文字列に変換し、長い場合は切り詰め
         content = str(content) if content else ""
-        display_content = content[:max_length] + "..." if len(content) > max_length else content
+        display_content = (content[:max_length] + "..." if max_length and len(content) > max_length else content)
         
         # 色と絵文字を取得
         color = get_type_color(msg_type)
@@ -350,19 +362,25 @@ class MessageStream(Static):
                         if msg_type == "task":
                             content = message_data.get("instruction", "") or message_data.get("prompt", "") or content
                         
-                        # chocobo_id を取得（報告メッセージ用）
+                        # chocobo_id を取得（報告メッセージ、タスクメッセージ両方で使用）
                         chocobo_id = message_data.get("chocobo_id") or message_data.get("child_id")
+                        # shutdownメッセージの target_child_id も取得
+                        target_child_id = message_data.get("target_child_id")
                         
                         # 送信者と受信者を再計算
                         if msg_type == "task":
                             sender = "moogle"
-                            receiver = f"chocobo-{target_chocobo_id}" if target_chocobo_id else "chocobo"
+                            # キュー名から抽出したIDを優先、なければメッセージ内のchild_idを使用
+                            task_target_id = target_chocobo_id or chocobo_id
+                            receiver = f"chocobo-{task_target_id}" if task_target_id is not None else "chocobo"
                         elif msg_type == "report":
                             sender = f"chocobo-{chocobo_id}" if chocobo_id is not None else "chocobo"
                             receiver = "moogle"
                         elif msg_type == "shutdown":
                             sender = "moogle"
-                            receiver = f"chocobo-{target_chocobo_id}" if target_chocobo_id else "chocobo"
+                            # キュー名から抽出したIDを優先、なければtarget_child_id、さらになければchild_idを使用
+                            shutdown_target_id = target_chocobo_id or target_child_id or chocobo_id
+                            receiver = f"chocobo-{shutdown_target_id}" if shutdown_target_id is not None else "chocobo"
                         else:
                             receiver = "moogle"
                 except (json.JSONDecodeError, TypeError):
@@ -375,9 +393,9 @@ class MessageStream(Static):
                 sender = parts[0]
                 receiver = parts[1]
         
-        # 長い場合は切り詰め
-        max_length = 50
-        display_content = content[:max_length] + "..." if len(content) > max_length else content
+        # 長い場合は切り詰め（Noneの場合は省略なし）
+        max_length = self._max_length
+        display_content = (content[:max_length] + "..." if max_length and len(content) > max_length else content)
         
         # 色と絵文字を取得
         emoji = get_type_emoji(msg_type)
@@ -615,7 +633,11 @@ class RedisMonitorApp(App):
     TITLE = "📡 Redis Agent Monitor"
     SUB_TITLE = "Auto-Monitoring Mode"
     
-    def __init__(self):
+    def __init__(self, max_message_length: Optional[int] = 50):
+        """
+        Args:
+            max_message_length: メッセージの最大表示文字数。Noneで全文表示。
+        """
         super().__init__()
         self._config = get_default_config()
         self._scanner: Optional[SessionScanner] = None
@@ -625,6 +647,10 @@ class RedisMonitorApp(App):
         self._monitored_sessions: set[str] = set()
         # ログストレージ
         self._log_storage = LogStorage()
+        # メッセージ表示の最大文字数（Noneで全文表示）
+        self._max_message_length = max_message_length
+        # MessageStreamクラスのデフォルト値を設定
+        MessageStream.default_max_length = max_message_length
     
     def compose(self) -> ComposeResult:
         yield Header()
@@ -881,7 +907,34 @@ class RedisMonitorApp(App):
 
 def main() -> None:
     """エントリーポイント"""
-    app = RedisMonitorApp()
+    parser = argparse.ArgumentParser(
+        description="Redis Agent Monitor - TUI版",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  redis-monitor                    # デフォルト（50文字で省略）
+  redis-monitor --full             # メッセージ全文表示
+  redis-monitor --max-length 100   # 100文字で省略
+        """
+    )
+    parser.add_argument(
+        "--full", "-f",
+        action="store_true",
+        help="メッセージを省略せず全文表示する"
+    )
+    parser.add_argument(
+        "--max-length", "-m",
+        type=int,
+        default=50,
+        help="メッセージの最大表示文字数（デフォルト: 50）"
+    )
+    
+    args = parser.parse_args()
+    
+    # --fullが指定された場合はNone（無制限）
+    max_length = None if args.full else args.max_length
+    
+    app = RedisMonitorApp(max_message_length=max_length)
     app.run()
 
 

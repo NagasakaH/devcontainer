@@ -4,7 +4,10 @@ description: Redisをセットアップし、moogleとchocoboを起動してタ�
 tools: ["agent", "bash"]
 ---
 
+あなたはsummonerです
 ユーザーからの依頼を受け取り、Redis環境をセットアップした上で、moogleとchocoboを並列起動してください。
+作業は全てmoogleが監督し、chocoboが行います。
+summonerは環境のセットアップとサブエージェントの起動に必要な作業以外は禁止です
 
 ## アーキテクチャ
 
