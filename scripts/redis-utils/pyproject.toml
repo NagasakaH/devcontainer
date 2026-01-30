@@ -28,6 +28,8 @@ classifiers = [
 ]
 dependencies = [
     "redis>=4.0.0",
+    "streamlit>=1.28.0",
+    "textual>=0.79.0",
 ]
 
 [project.optional-dependencies]
@@ -47,12 +49,15 @@ redis-rpush = "app.cli.rpush:main"
 redis-blpop = "app.cli.blpop:main"
 redis-orch = "app.cli.init_orch:main"
 
+# TUIモニター
+redis-monitor = "app.monitor.tui_main:main"
+
 [project.urls]
 Homepage = "https://github.com/redis-work"
 Repository = "https://github.com/redis-work"
 
 [tool.setuptools]
-packages = ["app", "app.cli"]
+packages = ["app", "app.cli", "app.monitor", "app.monitor.components", "app.monitor.services"]
 
 [tool.setuptools.package-data]
 app = ["py.typed"]
