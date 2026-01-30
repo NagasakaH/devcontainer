@@ -74,23 +74,24 @@ class MonitorMessage:
                 self.sender = "unknown"
     
     def _determine_sender(self, message_data: dict[str, Any]) -> str:
-        """メッセージタイプとchild_idから送信者を判定
+        """メッセージタイプとchocobo_id/child_idから送信者を判定
         
         Args:
             message_data: messageフィールドの内容
             
         Returns:
-            送信者を表す文字列（"moogle", "chocobo-N", "chocobo", "unknown"）
+            送信者を表す文字列（"moogle", "chocobo_N", "chocobo", "unknown"）
         """
         msg_type = message_data.get("type", "unknown")
-        child_id = message_data.get("child_id")
+        # chocobo_id を優先、なければ child_id をフォールバック
+        chocobo_id = message_data.get("chocobo_id") or message_data.get("child_id")
         
         if msg_type == "task":
             return "moogle"
         elif msg_type == "report":
-            return f"chocobo-{child_id}" if child_id is not None else "chocobo"
+            return f"chocobo_{chocobo_id}" if chocobo_id is not None else "chocobo"
         elif msg_type == "status":
-            return f"chocobo-{child_id}" if child_id is not None else "chocobo"
+            return f"chocobo_{chocobo_id}" if chocobo_id is not None else "chocobo"
         elif msg_type == "shutdown":
             return "moogle"
         else:

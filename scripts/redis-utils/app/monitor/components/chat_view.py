@@ -18,6 +18,17 @@ SENDER_COLORS = {
     "summoner": "#9B59B6",    # 紫
     "moogle": "#3498DB",       # 青
     "chocobo": "#27AE60",      # 緑
+    # chocobo_N 形式（アンダースコア）
+    "chocobo_1": "#27AE60",    # 緑
+    "chocobo_2": "#2ECC71",    # ライトグリーン
+    "chocobo_3": "#1ABC9C",    # ターコイズ
+    "chocobo_4": "#16A085",    # ダークターコイズ
+    "chocobo_5": "#F39C12",    # オレンジ
+    "chocobo_6": "#E67E22",    # ダークオレンジ
+    "chocobo_7": "#E74C3C",    # 赤
+    "chocobo_8": "#C0392B",    # ダーク赤
+    "chocobo_9": "#8E44AD",    # ダーク紫
+    # 後方互換: chocobo-N 形式（ハイフン）
     "chocobo-1": "#27AE60",    # 緑
     "chocobo-2": "#2ECC71",    # ライトグリーン
     "chocobo-3": "#1ABC9C",    # ターコイズ
@@ -43,6 +54,10 @@ def get_sender_color(sender: str) -> str:
     """送信者の色を取得"""
     if sender in SENDER_COLORS:
         return SENDER_COLORS[sender]
+    # chocobo_N 形式（アンダースコア）のサポート
+    if sender.startswith("chocobo_"):
+        return SENDER_COLORS.get("chocobo", "#27AE60")
+    # chocobo-N 形式（ハイフン）のサポート（後方互換）
     if sender.startswith("chocobo-"):
         return SENDER_COLORS.get("chocobo", "#27AE60")
     return SENDER_COLORS["unknown"]
@@ -52,6 +67,7 @@ def get_sender_emoji(sender: str) -> str:
     """送信者の絵文字を取得"""
     if sender in SENDER_EMOJI:
         return SENDER_EMOJI[sender]
+    # chocobo_N 形式（アンダースコア）とchocobo-N形式（ハイフン）の両方をサポート
     if sender.startswith("chocobo"):
         return "🐤"
     return SENDER_EMOJI["unknown"]
@@ -167,7 +183,7 @@ def render_message_type_legend() -> None:
 |---------|--------|------|
 | 🌟 | **summoner** | オーケストレーション制御 |
 | 🐾 | **moogle** | 親エージェント（タスク配信） |
-| 🐤 | **chocobo-N** | 子エージェント（タスク実行） |
+| 🐤 | **chocobo_N** | 子エージェント（タスク実行） |
 
 | メッセージタイプ | 説明 |
 |-----------------|------|

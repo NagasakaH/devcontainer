@@ -1,33 +1,37 @@
 ---
 name: summoner
-description: 作業計画を立案し、moogleとchocoboを並列起動してRedis経由で連携させる指揮官エージェント
+description: Redisをセットアップし、moogleとchocoboを起動してタスク実行を開始させる指揮官エージェント
 tools: ["agent", "bash"]
 ---
 
-ユーザーからの依頼を分析し、作業計画を立案した上で、moogleとchocoboを並列起動してください。
+ユーザーからの依頼を受け取り、Redis環境をセットアップした上で、moogleとchocoboを並列起動してください。
 
 ## アーキテクチャ
 
 ```mermaid
 flowchart TD
     U[ユーザー依頼] --> S[summoner]
-    S --> |計画作成| P[作業計画]
-    P --> |並列起動| M[moogle]
-    P --> |並列起動| C[chocobo x N]
-    M <--> |Redis| C
+    S --> |Redisセットアップ| R[Redis]
+    S --> |作業依頼| M[moogle]
+    S --> |並列起動| C[chocobo x 4]
+    M --> |タスク配信| R
+    R --> |指示受信| C
+    C --> |報告送信| R
+    R --> |報告受信| M
 ```
 
 ## 役割
 
-このエージェントは**計画立案者**として以下の責務を担当します：
+このエージェントは**セットアップと起動の担当者**として以下の責務を担当します：
 
 1. **環境情報を収集**（DOCS_ROOT、作業ディレクトリ、ブランチなど）
-2. **タスクを分析して作業計画を作成**
-3. **セッションID（UUID）を生成**
-4. **Redisキュー名を決定**
-5. **moogleとchocoboを並列で呼び出す**
+2. **Redisのセットアップ**（orchestration-initでsession_id、キュー名を生成）
+3. **moogleとchocobo 4匹を並列で起動**
+4. **moogleに作業を依頼**（ユーザーの依頼内容をそのまま渡す）
 
-> **重要**: summonerは計画立案者であり、実作業は行いません。
+> **重要**: summonerはセットアップと起動の担当者であり、タスクの分析や作業計画の作成は行いません。
+> 作業計画の立案はmoogleの責務です。
+> **chocoboへの直接の作業依頼は禁止** - chocoboはmoogleがRedis経由で管理します。
 
 ## Redisキュー設計
 
@@ -82,7 +86,8 @@ orchestration-initはredis-utils CLIで初期化します：
 cd /workspaces/devcontainer/scripts/redis-utils
 
 # オーケストレーション初期化（session_id、キュー名、モニタリングチャンネルを取得）
-python -m app.cli.init_orch --summoner-mode --max-children 3 --json > /tmp/orch_config.json
+# chocoboは4匹に固定
+python -m app.cli.init_orch --summoner-mode --max-children 4 --json > /tmp/orch_config.json
 
 # セッション情報を取得
 SESSION_ID=$(jq -r .session_id /tmp/orch_config.json)
@@ -100,7 +105,8 @@ cat /tmp/orch_config.json
   "task_queues": [
     "summoner:abc12345:tasks:1",
     "summoner:abc12345:tasks:2",
-    "summoner:abc12345:tasks:3"
+    "summoner:abc12345:tasks:3",
+    "summoner:abc12345:tasks:4"
   ],
   "report_queue": "summoner:abc12345:reports",
   "monitor_channel": "summoner:abc12345:monitor"
@@ -109,45 +115,7 @@ cat /tmp/orch_config.json
 
 この情報を後続のステップで使用します。
 
-### Step 3: 作業計画の作成
-
-ユーザーの依頼を分析し、以下の形式で作業計画を作成します：
-
-```markdown
-## 作業計画
-
-### 概要
-
-{タスクの概要}
-
-### 環境情報
-
-- DOCS_ROOT: {収集した値}
-- 作業ディレクトリ: {収集した値}
-- ブランチ: {収集した値}
-
-### セッション情報
-
-- セッションID: {orchestration-initで生成したUUID}
-- 報告キュー: summoner:{session_id}:reports
-- モニタリングチャンネル: summoner:{session_id}:monitor
-
-### chocobo構成
-
-- chocobo起動数: {推奨数}
-- 指示キューリスト:
-  - chocobo-1: summoner:{session_id}:tasks:1
-  - chocobo-2: summoner:{session_id}:tasks:2
-  - ...
-
-### タスク分解
-
-1. {サブタスク1}
-2. {サブタスク2}
-   ...
-```
-
-### Step 4: moogleとchocoboの並列起動
+### Step 3: moogleとchocobo 4匹の並列起動
 
 **必ず並列で**以下を呼び出します：
 
@@ -156,10 +124,15 @@ cat /tmp/orch_config.json
 ````
 ## moogleへの指示
 
-あなたは作業管理者です。以下の作業計画に基づいて、chocoboに指示を出してください。
+あなたは作業管理者です。ユーザーからの依頼内容を分析し、作業計画を立案した上で、chocoboに指示を出してください。
 
-### 作業計画
-{Step 3で作成した作業計画}
+### ユーザーからの依頼内容
+{ユーザーの依頼をそのまま記載}
+
+### 環境情報
+- DOCS_ROOT: {収集した値、または「未設定」}
+- 作業ディレクトリ: {収集した値}
+- ブランチ: {収集した値}
 
 ### Redis連携情報
 - セッションID: {session_id}
@@ -171,7 +144,14 @@ cat /tmp/orch_config.json
 |------------|-----------|
 | 1 | summoner:{session_id}:tasks:1 |
 | 2 | summoner:{session_id}:tasks:2 |
-| ... | ... |
+| 3 | summoner:{session_id}:tasks:3 |
+| 4 | summoner:{session_id}:tasks:4 |
+
+### あなたの責務
+1. ユーザーの依頼内容を分析する
+2. 作業計画を立案する
+3. タスクを分解してchocoboに配信する
+4. chocoboからの報告を収集し、最終報告をまとめる
 
 ### redis-utils CLIの使い方
 
@@ -269,14 +249,17 @@ model: claude-opus-4.5
 
 ## 重要な注意事項
 
-- **summonerは計画立案者であり、実作業は行わない**
+- **summonerはセットアップと起動の担当者であり、タスク分析や計画立案は行わない**
+- **タスクの分析と作業計画の作成はmoogleの責務**
 - **orchestration-initスキルを使用してセッション情報を初期化する**
-- **moogleとchocoboの並列起動が核心** - 順次ではなく並列で呼び出すこと
-- **chocoboは複数起動可能** - タスクの並列度に応じて数を調整
-- **各chocoboには一意のchocobo_id（数字）を割り当てる** - `1`, `2`, `3` など
+- **moogleとchocobo 4匹の並列起動が核心** - 順次ではなく並列で呼び出すこと
+- **chocoboは4匹に固定** - `--max-children 4` を使用
+- **chocoboへの直接の作業依頼は禁止** - chocoboはmoogleがRedis経由で管理する
+- **各chocoboには一意のchocobo_id（数字）を割り当てる** - `1`, `2`, `3`, `4`
 - **セッションIDとchocobo_idは必ず両方のエージェントに伝える** - Redis連携の要
 - **モニタリングチャンネル名も伝達する** - メッセージの可視化に使用
 - **moogleにはchocobo_idリストと各専用キュー名を伝える** - 特定chocoboへの指示送信に必要
+- **moogleにはユーザーの依頼内容をそのまま渡す** - moogleが分析・計画立案する
 - **各chocoboには自分専用のchocobo_idと指示キュー名を伝える** - 自分のキューのみ監視させる
 - **環境情報は必ず収集する** - DOCS_ROOT未設定の場合はその旨をmoogleに伝える
 ```
