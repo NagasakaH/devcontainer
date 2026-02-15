@@ -47,6 +47,7 @@
       "toolsToInstall": "ruff"
     },
     "ghcr.io/devcontainers-extra/features/shfmt:1": {},
-    "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
+    "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {},
+    "ghcr.io/larsnieuwenhuizen/features/jqyq:0": {}
   }
 }
