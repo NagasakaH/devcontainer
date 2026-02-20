@@ -6,8 +6,8 @@
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `GITLAB_TOKEN` | GitLab Personal Access Token (skill reads this) | Yes |
-| `GITLAB_API_URL` | GitLab API URL (default: `https://gitlab.com/api/v4`) | No |
+| `GITLAB_TOKEN` | GitLab Personal Access Token (skill reads this, prompts user if unset) | Yes |
+| `GITLAB_API_URL` | GitLab API URL. Set to your self-hosted instance URL (e.g. `https://gitlab.example.com/api/v4`) | No (default: `https://gitlab.com/api/v4`) |
 | `GITLAB_PROJECT_ID` | Default project ID | No |
 
 ### Optional Settings

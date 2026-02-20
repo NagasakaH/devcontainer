@@ -7,13 +7,17 @@ description: GitLab API access via MCP server (@zereight/mcp-gitlab). Use when i
 
 Access GitLab API through the `@zereight/mcp-gitlab` MCP server.
 
-## Authentication
+## Authentication & Configuration
 
-Read GITLAB_TOKEN from environment. If not set, prompt the user for their GitLab Personal Access Token.
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GITLAB_TOKEN` | Personal Access Token (required, prompts if unset) | — |
+| `GITLAB_API_URL` | GitLab API endpoint | `https://gitlab.com/api/v4` |
 
 ```bash
-# Check token availability
-echo $GITLAB_TOKEN
+# Example: use self-hosted GitLab
+export GITLAB_TOKEN="glpat-xxx"
+export GITLAB_API_URL="https://gitlab.example.com/api/v4"
 ```
 
 ## Usage
