@@ -72,4 +72,4 @@ if [[ -n "$DEBUG_FLAG" ]]; then
     DEBUG_OPTS+=(--log-level debug --log-dir /tmp/logs)
 fi
 
-copilot --allow-all --agent general-purpose-agent $RESUME_FLAG "${OTHER_ARGS[@]}" "${DEBUG_OPTS[@]}"
+copilot --allow-all --agent general-purpose $RESUME_FLAG "${OTHER_ARGS[@]}" "${DEBUG_OPTS[@]}"
